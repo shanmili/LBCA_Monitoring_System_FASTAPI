@@ -1,10 +1,9 @@
 import '../../../styles/students/StudentTable.css';
 
 const StudentTable = ({ students, getStatusBadgeClass, onNavigate }) => {
-  // Helper function to get full name
   const getFullName = (student) => {
-    const middleInitial = student.middleName ? ` ${student.middleName.charAt(0)}.` : '';
-    return `${student.lastName}, ${student.firstName}${middleInitial}`;
+    const mid = student.middle_name ? ` ${student.middle_name.charAt(0)}.` : '';
+    return `${student.last_name}, ${student.first_name}${mid}`;
   };
 
   return (
@@ -18,8 +17,7 @@ const StudentTable = ({ students, getStatusBadgeClass, onNavigate }) => {
             <th>Section</th>
             <th>Guardian</th>
             <th>Contact</th>
-            <th>PACE %</th>
-            <th>Attendance</th>
+            <th>School Year</th>
             <th>Status</th>
             <th>Action</th>
           </tr>
@@ -27,24 +25,23 @@ const StudentTable = ({ students, getStatusBadgeClass, onNavigate }) => {
         <tbody>
           {students.length > 0 ? (
             students.map(student => (
-              <tr key={student.id}>
-                <td>{student.id}</td>
+              <tr key={student.student_id}>
+                <td>{student.student_id}</td>
                 <td className="student-name-cell">{getFullName(student)}</td>
-                <td>{student.gradeLevel}</td>
-                <td>{student.section}</td>
-                <td>{student.guardianLastName}</td>
-                <td>{student.guardianContact}</td>
-                <td>{student.pacePercent}%</td>
-                <td>{student.attendance}%</td>
+                <td>{student.gradeLevelDisplay}</td>
+                <td>{student.sectionDisplay}</td>
+                <td>{student.guardian_last_name}</td>
+                <td>{student.guardian_contact}</td>
+                <td>{student.schoolYearDisplay}</td>
                 <td>
-                  <span className={getStatusBadgeClass(student.status)}>
-                    {student.status}
+                  <span className={getStatusBadgeClass(student.isActive)}>
+                    {student.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td>
-                  <button 
+                  <button
                     className="view-button"
-                    onClick={() => onNavigate('student-profile', student.id)}
+                    onClick={() => onNavigate('student-profile', student.student_id)}
                   >
                     View
                   </button>
@@ -53,7 +50,7 @@ const StudentTable = ({ students, getStatusBadgeClass, onNavigate }) => {
             ))
           ) : (
             <tr>
-              <td colSpan="10" className="no-results">No students found</td>
+              <td colSpan="9" className="no-results">No students found</td>
             </tr>
           )}
         </tbody>

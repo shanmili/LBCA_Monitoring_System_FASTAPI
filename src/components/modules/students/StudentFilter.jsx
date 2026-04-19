@@ -1,22 +1,40 @@
 import FilterBar from '../../../components/common/FilterBar';
-import { studentSections, studentGrades, schoolYears } from '../../../data/mockData';
 
-const StudentFilter = ({ filters, onFilterChange, teacher = null }) => {
-  // Get available grades based on teacher assignment
-  const getAvailableGrades = () => {
-    if (teacher?.assignedGrades) {
-      return teacher.assignedGrades;
+/**
+ * StudentFilter
+ *
+ * Props:
+ *   filters         — current filter state
+ *   onFilterChange  — fn(key, value)
+ *   gradeLevels     — [{ grade_level_id, level }] from API
+ *   sections        — [{ section_id, name, grade_level }] from API
+ *   schoolYears     — [{ school_year_id, year, is_current }] from API
+ *   teacher         — optional teacher object with assignedGrades/assignedSections
+ */
+const StudentFilter = ({
+  filters,
+  onFilterChange,
+  gradeLevels = [],
+  sections = [],
+  schoolYears = [],
+  teacher = null,
+}) => {
+  // Filter by teacher assignments if applicable
+  const availableGrades = teacher?.assignedGrades
+    ? gradeLevels.filter(gl => teacher.assignedGrades.includes(gl.level))
+    : gradeLevels;
+
+  // Filter sections by selected grade and teacher scope
+  const availableSections = (() => {
+    let filtered = sections;
+    if (filters.gradeLevel !== 'All') {
+      filtered = filtered.filter(s => String(s.grade_level) === filters.gradeLevel);
     }
-    return studentGrades;
-  };
-
-  // Get available sections based on teacher assignment
-  const getAvailableSections = () => {
     if (teacher?.assignedSections) {
-      return teacher.assignedSections;
+      filtered = filtered.filter(s => teacher.assignedSections.includes(s.name));
     }
-    return studentSections;
-  };
+    return filtered;
+  })();
 
   const filterOptions = [
     {
@@ -24,52 +42,46 @@ const StudentFilter = ({ filters, onFilterChange, teacher = null }) => {
       value: filters.schoolYear,
       options: [
         { value: 'All', label: 'All Years' },
-        ...schoolYears.map(year => ({ 
-          value: year, 
-          label: `SY ${year}` 
-        }))
-      ]
+        ...schoolYears.map(sy => ({
+          value: String(sy.school_year_id),
+          label: `SY ${sy.year}${sy.is_current ? ' ✓' : ''}`,
+        })),
+      ],
     },
     {
       key: 'gradeLevel',
       value: filters.gradeLevel,
       options: [
         { value: 'All', label: 'All Grades' },
-        ...getAvailableGrades().map(grade => ({ 
-          value: grade, 
-          label: grade 
-        }))
-      ]
+        ...availableGrades.map(gl => ({
+          value: String(gl.grade_level_id),
+          label: gl.level,
+        })),
+      ],
     },
     {
       key: 'section',
       value: filters.section,
       options: [
         { value: 'All', label: 'All Sections' },
-        ...getAvailableSections().map(section => ({ 
-          value: section, 
-          label: section 
-        }))
-      ]
+        ...availableSections.map(s => ({
+          value: String(s.section_id),
+          label: `${s.section_code} — ${s.name}`,
+        })),
+      ],
     },
     {
       key: 'status',
       value: filters.status,
       options: [
         { value: 'All', label: 'All Status' },
-        { value: 'On Track', label: 'On Track' },
-        { value: 'Behind', label: 'Behind' },
-        { value: 'At Risk', label: 'At Risk' },
-      ]
-    }
+        { value: 'Active', label: 'Active' },
+        { value: 'Inactive', label: 'Inactive' },
+      ],
+    },
   ];
 
-  return (
-    <FilterBar 
-      filters={filterOptions} 
-      onFilterChange={onFilterChange} 
-    />
-  );
+  return <FilterBar filters={filterOptions} onFilterChange={onFilterChange} />;
 };
 
 export default StudentFilter;
