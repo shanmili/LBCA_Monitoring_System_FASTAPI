@@ -1,134 +1,150 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   BookOpen, CalendarDays, Layers, ChevronDown, ChevronRight,
-  Plus, Pencil, Trash2, CheckCircle, Clock, Group, X,
+  Plus, Pencil, Trash2, CheckCircle, Clock, Group, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import SchoolYearModal from './SchoolYearModal.jsx';
 import GradeLevelModal from './GradeLevelModal.jsx';
 import SectionModal from './SectionModal.jsx';
+import { gradeLevelApi, schoolYearApi, sectionApi } from '../../../services/api.js';
 import '../../../styles/setup/SetupPage.css';
 import '../../../styles/setup/UnifiedSetup.css';
 
-/* ── Mock Data ─────────────────────────────────────────────── */
-const mockSchoolYears = [
-  { school_year_id: 1, year: '2024-2025', is_current: true,  start_date: '2024-06-03', end_date: '2025-03-28' },
-  { school_year_id: 2, year: '2023-2024', is_current: false, start_date: '2023-06-05', end_date: '2024-03-29' },
-  { school_year_id: 3, year: '2022-2023', is_current: false, start_date: '2022-06-06', end_date: '2023-03-31' },
-];
+const ErrorBanner = ({ message, onRetry }) => (
+  <div style={{
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '10px 14px', marginBottom: 12,
+    background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6,
+    color: '#b91c1c', fontSize: 13,
+  }}>
+    <AlertCircle size={15} />
+    <span style={{ flex: 1 }}>{message}</span>
+    {onRetry && (
+      <button onClick={onRetry} style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        background: 'none', border: '1px solid #f87171', borderRadius: 4,
+        padding: '2px 8px', color: '#b91c1c', cursor: 'pointer', fontSize: 12,
+      }}>
+        <RefreshCw size={12} /> Retry
+      </button>
+    )}
+  </div>
+);
 
-const mockGradeLevels = [
-  { grade_level_id: 1, level: 'Grade 1', name: 'First Grade' },
-  { grade_level_id: 2, level: 'Grade 2', name: 'Second Grade' },
-  { grade_level_id: 3, level: 'Grade 3', name: 'Third Grade' },
-  { grade_level_id: 4, level: 'Grade 4', name: 'Fourth Grade' },
-  { grade_level_id: 5, level: 'Grade 5', name: 'Fifth Grade' },
-  { grade_level_id: 6, level: 'Grade 6', name: 'Sixth Grade' },
-];
-
-const mockSections = [
-  { section_id: 1, grade_level: 1, section_code: '1-A', name: 'Section A' },
-  { section_id: 2, grade_level: 1, section_code: '1-B', name: 'Section B' },
-  { section_id: 3, grade_level: 2, section_code: '2-A', name: 'Section A' },
-  { section_id: 4, grade_level: 3, section_code: '3-A', name: 'Section A' },
-];
-
-/* ── Main Component ─────────────────────────────────────────── */
 const SetupPage = () => {
-  // School Years state
-  const [schoolYears, setSchoolYears] = useState(mockSchoolYears);
+  const [schoolYears, setSchoolYears] = useState([]);
+  const [syLoading, setSyLoading] = useState(true);
+  const [syError, setSyError] = useState(null);
   const [syModalOpen, setSyModalOpen] = useState(false);
   const [editingSY, setEditingSY] = useState(null);
   const [syExpanded, setSyExpanded] = useState(true);
 
-  // Grade Levels state
-  const [gradeLevels, setGradeLevels] = useState(mockGradeLevels);
+  const [gradeLevels, setGradeLevels] = useState([]);
+  const [glLoading, setGlLoading] = useState(true);
+  const [glError, setGlError] = useState(null);
   const [glModalOpen, setGlModalOpen] = useState(false);
   const [editingGL, setEditingGL] = useState(null);
   const [glExpanded, setGlExpanded] = useState(true);
   const [expandedGrades, setExpandedGrades] = useState({});
 
-  // Sections state
-  const [sections, setSections] = useState(mockSections);
+  const [sections, setSections] = useState([]);
+  const [secLoading, setSecLoading] = useState(true);
+  const [secError, setSecError] = useState(null);
   const [secModalOpen, setSecModalOpen] = useState(false);
   const [editingSec, setEditingSec] = useState(null);
   const [prefillGrade, setPrefillGrade] = useState(null);
 
-  /* ── School Year handlers ── */
-  const handleSaveSY = (data) => {
-    if (editingSY) {
-      setSchoolYears(prev => prev.map(sy => {
-        if (sy.school_year_id === editingSY.school_year_id) return { ...sy, ...data };
-        if (data.is_current) return { ...sy, is_current: false };
-        return sy;
-      }));
-    } else {
-      const newItem = { school_year_id: Date.now(), ...data };
-      setSchoolYears(prev =>
-        data.is_current
-          ? [newItem, ...prev.map(sy => ({ ...sy, is_current: false }))]
-          : [newItem, ...prev]
-      );
-    }
-    setSyModalOpen(false);
-    setEditingSY(null);
+  const [saving, setSaving] = useState(false);
+
+  const fetchSchoolYears = useCallback(async () => {
+    setSyLoading(true); setSyError(null);
+    try { setSchoolYears(await schoolYearApi.list()); }
+    catch (err) { setSyError(err.message); }
+    finally { setSyLoading(false); }
+  }, []);
+
+  const fetchGradeLevels = useCallback(async () => {
+    setGlLoading(true); setGlError(null);
+    try { setGradeLevels(await gradeLevelApi.list()); }
+    catch (err) { setGlError(err.message); }
+    finally { setGlLoading(false); }
+  }, []);
+
+  const fetchSections = useCallback(async () => {
+    setSecLoading(true); setSecError(null);
+    try { setSections(await sectionApi.list()); }
+    catch (err) { setSecError(err.message); }
+    finally { setSecLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    fetchSchoolYears();
+    fetchGradeLevels();
+    fetchSections();
+  }, [fetchSchoolYears, fetchGradeLevels, fetchSections]);
+
+  const handleSaveSY = async (data) => {
+    setSaving(true);
+    try {
+      if (editingSY) await schoolYearApi.update(editingSY.school_year_id, data);
+      else await schoolYearApi.create(data);
+      setSyModalOpen(false); setEditingSY(null);
+      await fetchSchoolYears();
+    } catch (err) { alert(`Failed to save school year: ${err.message}`); }
+    finally { setSaving(false); }
   };
 
-  const handleDeleteSY = (id) => {
+  const handleDeleteSY = async (id) => {
     const target = schoolYears.find(sy => sy.school_year_id === id);
     if (target?.is_current) { alert('Cannot delete the currently active school year.'); return; }
-    if (window.confirm('Delete this school year?')) {
-      setSchoolYears(prev => prev.filter(sy => sy.school_year_id !== id));
-    }
+    if (!window.confirm('Delete this school year?')) return;
+    try { await schoolYearApi.delete(id); await fetchSchoolYears(); }
+    catch (err) { alert(`Failed to delete: ${err.message}`); }
   };
 
-  /* ── Grade Level handlers ── */
-  const handleSaveGL = (data) => {
-    if (editingGL) {
-      setGradeLevels(prev => prev.map(gl => gl.grade_level_id === editingGL.grade_level_id ? { ...gl, ...data } : gl));
-    } else {
-      setGradeLevels(prev => [...prev, { grade_level_id: Date.now(), ...data }]);
-    }
-    setGlModalOpen(false);
-    setEditingGL(null);
+  const handleSaveGL = async (data) => {
+    setSaving(true);
+    try {
+      if (editingGL) await gradeLevelApi.update(editingGL.grade_level_id, data);
+      else await gradeLevelApi.create(data);
+      setGlModalOpen(false); setEditingGL(null);
+      await fetchGradeLevels();
+    } catch (err) { alert(`Failed to save grade level: ${err.message}`); }
+    finally { setSaving(false); }
   };
 
-  const handleDeleteGL = (id) => {
-    const hasSections = sections.some(s => s.grade_level === id);
-    if (hasSections) { alert('Cannot delete a grade level that has sections. Remove its sections first.'); return; }
-    if (window.confirm('Delete this grade level?')) {
-      setGradeLevels(prev => prev.filter(gl => gl.grade_level_id !== id));
+  const handleDeleteGL = async (id) => {
+    if (sections.some(s => s.grade_level === id)) {
+      alert('Cannot delete a grade level that has sections. Remove its sections first.');
+      return;
     }
+    if (!window.confirm('Delete this grade level?')) return;
+    try { await gradeLevelApi.delete(id); await fetchGradeLevels(); }
+    catch (err) { alert(`Failed to delete: ${err.message}`); }
   };
 
-  const toggleGrade = (id) => {
-    setExpandedGrades(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleGrade = (id) => setExpandedGrades(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const handleSaveSec = async (data) => {
+    setSaving(true);
+    const payload = { grade_level: Number(data.grade_level), section_code: data.section_code, name: data.name };
+    try {
+      if (editingSec) await sectionApi.update(editingSec.section_id, payload);
+      else await sectionApi.create(payload);
+      setSecModalOpen(false); setEditingSec(null); setPrefillGrade(null);
+      await fetchSections();
+    } catch (err) { alert(`Failed to save section: ${err.message}`); }
+    finally { setSaving(false); }
   };
 
-  /* ── Section handlers ── */
-  const handleSaveSec = (data) => {
-    const gradeLevel = gradeLevels.find(gl => gl.grade_level_id === Number(data.grade_level));
-    const enriched = { ...data, grade_level_display: gradeLevel?.level || '' };
-    if (editingSec) {
-      setSections(prev => prev.map(s => s.section_id === editingSec.section_id ? { ...s, ...enriched } : s));
-    } else {
-      setSections(prev => [...prev, { section_id: Date.now(), ...enriched }]);
-    }
-    setSecModalOpen(false);
-    setEditingSec(null);
-    setPrefillGrade(null);
-  };
-
-  const handleDeleteSec = (id) => {
-    if (window.confirm('Delete this section?')) {
-      setSections(prev => prev.filter(s => s.section_id !== id));
-    }
+  const handleDeleteSec = async (id) => {
+    if (!window.confirm('Delete this section?')) return;
+    try { await sectionApi.delete(id); await fetchSections(); }
+    catch (err) { alert(`Failed to delete: ${err.message}`); }
   };
 
   const openAddSection = (gradeId) => {
-    setPrefillGrade(gradeId);
-    setEditingSec(null);
-    setSecModalOpen(true);
-    // Auto-expand the grade
+    setPrefillGrade(gradeId); setEditingSec(null); setSecModalOpen(true);
     setExpandedGrades(prev => ({ ...prev, [gradeId]: true }));
   };
 
@@ -136,8 +152,6 @@ const SetupPage = () => {
 
   return (
     <div className="setup-page unified-setup">
-
-      {/* ── Page Header ── */}
       <div className="setup-header-row">
         <div className="setup-header-title">
           <div className="setup-title-wrapper">
@@ -148,15 +162,13 @@ const SetupPage = () => {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════
-          SECTION 1 — SCHOOL YEARS
-      ══════════════════════════════════════════ */}
+      {/* SCHOOL YEARS */}
       <div className="us-card">
         <div className="us-card-header" onClick={() => setSyExpanded(v => !v)}>
           <div className="us-card-title">
             <CalendarDays size={18} />
             <span>School Years</span>
-            <span className="us-count-badge">{schoolYears.length}</span>
+            {!syLoading && <span className="us-count-badge">{schoolYears.length}</span>}
           </div>
           <div className="us-card-actions" onClick={e => e.stopPropagation()}>
             <button className="setup-add-btn us-add-btn" onClick={() => { setEditingSY(null); setSyModalOpen(true); }}>
@@ -170,26 +182,20 @@ const SetupPage = () => {
 
         {syExpanded && (
           <div className="us-card-body">
+            {syError && <ErrorBanner message={syError} onRetry={fetchSchoolYears} />}
             {current && (
               <div className="setup-current-banner us-banner">
                 <CheckCircle size={14} />
                 <span>Active: <strong>{current.year}</strong> &nbsp;({current.start_date} – {current.end_date})</span>
               </div>
             )}
-
             <div className="setup-table-card us-table-card">
               <table className="setup-table">
-                <thead>
-                  <tr>
-                    <th>Year</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Year</th><th>Start Date</th><th>End Date</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {schoolYears.length === 0 ? (
+                  {syLoading ? (
+                    <tr><td colSpan={5} className="setup-empty">Loading school years…</td></tr>
+                  ) : schoolYears.length === 0 ? (
                     <tr><td colSpan={5} className="setup-empty">No school years yet. Add one above.</td></tr>
                   ) : schoolYears.map(sy => (
                     <tr key={sy.school_year_id}>
@@ -216,15 +222,15 @@ const SetupPage = () => {
         )}
       </div>
 
-      {/* ══════════════════════════════════════════
-          SECTION 2 — GRADE LEVELS + SECTIONS
-      ══════════════════════════════════════════ */}
+      {/* GRADE LEVELS + SECTIONS */}
       <div className="us-card">
         <div className="us-card-header" onClick={() => setGlExpanded(v => !v)}>
           <div className="us-card-title">
             <Layers size={18} />
             <span>Grade Levels & Sections</span>
-            <span className="us-count-badge">{gradeLevels.length} grades · {sections.length} sections</span>
+            {!glLoading && !secLoading && (
+              <span className="us-count-badge">{gradeLevels.length} grades · {sections.length} sections</span>
+            )}
           </div>
           <div className="us-card-actions" onClick={e => e.stopPropagation()}>
             <button className="setup-add-btn us-add-btn" onClick={() => { setEditingGL(null); setGlModalOpen(true); }}>
@@ -238,55 +244,46 @@ const SetupPage = () => {
 
         {glExpanded && (
           <div className="us-card-body">
-            {gradeLevels.length === 0 ? (
+            {glError && <ErrorBanner message={glError} onRetry={fetchGradeLevels} />}
+            {secError && <ErrorBanner message={secError} onRetry={fetchSections} />}
+            {glLoading ? (
+              <p className="us-empty-hint">Loading grade levels…</p>
+            ) : gradeLevels.length === 0 ? (
               <p className="us-empty-hint">No grade levels yet. Add one above.</p>
             ) : gradeLevels.map(gl => {
               const glSections = sections.filter(s => s.grade_level === gl.grade_level_id);
               const isOpen = !!expandedGrades[gl.grade_level_id];
-
               return (
                 <div key={gl.grade_level_id} className="us-grade-block">
-
-                  {/* Grade row */}
                   <div className="us-grade-row" onClick={() => toggleGrade(gl.grade_level_id)}>
                     <div className="us-grade-left">
-                      <span className="us-grade-chevron">
-                        {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                      </span>
+                      <span className="us-grade-chevron">{isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</span>
                       <Layers size={15} className="us-grade-icon" />
                       <span className="us-grade-name">{gl.level}</span>
                       <span className="us-grade-subname">{gl.name}</span>
-                      <span className="us-section-count">{glSections.length} section{glSections.length !== 1 ? 's' : ''}</span>
+                      <span className="us-section-count">
+                        {secLoading ? '…' : `${glSections.length} section${glSections.length !== 1 ? 's' : ''}`}
+                      </span>
                     </div>
                     <div className="us-grade-right" onClick={e => e.stopPropagation()}>
-                      <button className="us-inline-add-btn" onClick={() => openAddSection(gl.grade_level_id)} title="Add section">
-                        <Plus size={13} /> Section
-                      </button>
+                      <button className="us-inline-add-btn" onClick={() => openAddSection(gl.grade_level_id)} title="Add section"><Plus size={13} /> Section</button>
                       <button className="setup-action-btn edit" onClick={() => { setEditingGL(gl); setGlModalOpen(true); }} title="Edit grade"><Pencil size={13} /></button>
                       <button className="setup-action-btn delete" onClick={() => handleDeleteGL(gl.grade_level_id)} title="Delete grade"><Trash2 size={13} /></button>
                     </div>
                   </div>
 
-                  {/* Sections sub-table */}
                   {isOpen && (
                     <div className="us-sections-panel">
-                      {glSections.length === 0 ? (
+                      {secLoading ? (
+                        <div className="us-sections-empty"><span>Loading sections…</span></div>
+                      ) : glSections.length === 0 ? (
                         <div className="us-sections-empty">
-                          <Group size={14} />
-                          <span>No sections yet.</span>
-                          <button className="us-inline-add-btn" onClick={() => openAddSection(gl.grade_level_id)}>
-                            <Plus size={12} /> Add Section
-                          </button>
+                          <Group size={14} /><span>No sections yet.</span>
+                          <button className="us-inline-add-btn" onClick={() => openAddSection(gl.grade_level_id)}><Plus size={12} /> Add Section</button>
                         </div>
                       ) : (
                         <table className="setup-table us-sections-table">
-                          <thead>
-                            <tr>
-                              <th>Code</th>
-                              <th>Section Name</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
+                          <thead><tr><th>Code</th><th>Section Name</th><th>Actions</th></tr></thead>
                           <tbody>
                             {glSections.map(sec => (
                               <tr key={sec.section_id}>
@@ -312,18 +309,19 @@ const SetupPage = () => {
         )}
       </div>
 
-      {/* ── Modals ── */}
       <SchoolYearModal
         isOpen={syModalOpen}
         onClose={() => { setSyModalOpen(false); setEditingSY(null); }}
         onSave={handleSaveSY}
         editingItem={editingSY}
+        saving={saving}
       />
       <GradeLevelModal
         isOpen={glModalOpen}
         onClose={() => { setGlModalOpen(false); setEditingGL(null); }}
         onSave={handleSaveGL}
         editingItem={editingGL}
+        saving={saving}
       />
       <SectionModal
         isOpen={secModalOpen}
@@ -332,6 +330,7 @@ const SetupPage = () => {
         editingItem={editingSec}
         gradeLevels={gradeLevels}
         prefillGradeId={prefillGrade}
+        saving={saving}
       />
     </div>
   );
