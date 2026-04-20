@@ -57,9 +57,7 @@
 }
 
 .us-add-btn {
-  padding: 0.4rem 0.8rem !important;
-  font-size: 0.8rem !important;
-  gap: 0.35rem !important;
+  /* Uses base setup-add-btn sizing - no overrides needed */
 }
 
 .us-chevron-btn {

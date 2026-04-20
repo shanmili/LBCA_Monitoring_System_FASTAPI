@@ -53,6 +53,16 @@ export const sectionApi = {
   delete: (id) => request(`/api/sections/${id}`, { method: 'DELETE' }),
 };
 
+// ── Subjects ───────────────────────────────────────────────────────────────────
+export const subjectApi = {
+  list: (gradeLevelId = null) =>
+    request(gradeLevelId ? `/api/subjects/?grade_level_id=${gradeLevelId}` : '/api/subjects/'),
+  get: (id) => request(`/api/subjects/${id}`),
+  create: (data) => request('/api/subjects', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/api/subjects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id) => request(`/api/subjects/${id}`, { method: 'DELETE' }),
+};
+
 // ── Students ──────────────────────────────────────────────────────────────────
 export const studentApi = {
   list: () => request('/api/students/'),

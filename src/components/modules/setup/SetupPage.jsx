@@ -6,6 +6,7 @@ import {
 import SchoolYearModal from './SchoolYearModal.jsx';
 import GradeLevelModal from './GradeLevelModal.jsx';
 import SectionModal from './SectionModal.jsx';
+import SubjectTable from './SubjectTable.jsx';
 import { gradeLevelApi, schoolYearApi, sectionApi } from '../../../services/api.js';
 import '../../../styles/setup/SetupPage.css';
 import '../../../styles/setup/UnifiedSetup.css';
@@ -332,6 +333,9 @@ const SetupPage = () => {
         prefillGradeId={prefillGrade}
         saving={saving}
       />
+
+      {/* SUBJECTS */}
+      <SubjectTable />
     </div>
   );
 };
