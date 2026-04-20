@@ -6,7 +6,6 @@ const LoginScreen = ({ onLogin, onForgotPassword, onRegister, error, isLoading }
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [focused, setFocused] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -21,7 +20,7 @@ const LoginScreen = ({ onLogin, onForgotPassword, onRegister, error, isLoading }
             <span className="logo-text">L</span>
           </div>
           <h1 className="title">LBCA Portal</h1>
-          <p className="subtitle">Sign in to your account</p>
+          <p className="subtitle">Sign in to your account.</p>
         </div>
 
         {error && <div className="error-message">{error}</div>}
@@ -60,23 +59,25 @@ const LoginScreen = ({ onLogin, onForgotPassword, onRegister, error, isLoading }
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => { setFocused(false); setShowPassword(false); }}
                 required
                 disabled={isLoading}
                 autoComplete="current-password"
               />
-              {password && focused && (
+              {password && (
                 <button
                   type="button"
                   className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // prevents input blur before toggle fires
+                    setShowPassword((prev) => !prev);
+                  }}
                   tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               )}
-            </div>    
+            </div>
           </div>
 
           <button type="submit" className="btn-submit" disabled={isLoading}>

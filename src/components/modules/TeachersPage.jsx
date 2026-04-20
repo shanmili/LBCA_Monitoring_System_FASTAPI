@@ -8,11 +8,15 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const TeachersPage = () => {
   const [users, setUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('approved');
   const [actionLoading, setActionLoading] = useState(null);
   const [toast, setToast] = useState('');
+  const [rejectModal, setRejectModal] = useState(false);
+  const [rejectingUser, setRejectingUser] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const token = localStorage.getItem('access_token');
 
@@ -20,13 +24,22 @@ const TeachersPage = () => {
     setLoading(true);
     setError('');
     try {
-      const params = filter !== 'all' ? `?account_status=${filter}` : '';
-      const res = await fetch(`${API_BASE}/api/users${params}`, {
+      // Fetch all users for stats
+      const allRes = await fetch(`${API_BASE}/api/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Failed to fetch users');
-      const data = await res.json();
-      setUsers(data);
+      if (!allRes.ok) throw new Error('Failed to fetch users');
+      const allData = await allRes.json();
+      setAllUsers(allData);
+
+      // Fetch filtered users for table
+      const params = filter !== 'all' ? `?account_status=${filter}` : '';
+      const filteredRes = await fetch(`${API_BASE}/api/users${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!filteredRes.ok) throw new Error('Failed to fetch filtered users');
+      const filteredData = await filteredRes.json();
+      setUsers(filteredData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -70,7 +83,8 @@ const TeachersPage = () => {
           requires_password_change: true 
         }),
       });
-      if (!res.ok) throw new Error('Failed to reset password');
+      const data = await res.json();
+      if (!res.ok) throw new Error(String(data.detail) || 'Failed to reset password');
       showToast(`Password reset for ${user.email}. New password: ${tempPassword}`);
       fetchUsers();
     } catch (err) {
@@ -88,7 +102,8 @@ const TeachersPage = () => {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) throw new Error('Failed to deactivate');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(String(data.detail) || 'Failed to deactivate');
         showToast(`${user.email} deactivated successfully.`);
       } else if (user.account_status === 'inactive') {
         const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
@@ -99,7 +114,8 @@ const TeachersPage = () => {
           },
           body: JSON.stringify({ account_status: 'active' }),
         });
-        if (!res.ok) throw new Error('Failed to reactivate');
+        const data = await res.json();
+        if (!res.ok) throw new Error(String(data.detail) || 'Failed to reactivate');
         showToast(`${user.email} reactivated successfully.`);
       } else if (user.account_status === 'rejected') {
         const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
@@ -110,7 +126,8 @@ const TeachersPage = () => {
           },
           body: JSON.stringify({ account_status: 'approved' }),
         });
-        if (!res.ok) throw new Error('Failed to approve');
+        const data = await res.json();
+        if (!res.ok) throw new Error(String(data.detail) || 'Failed to approve');
         showToast(`${user.email} approved successfully.`);
       }
       fetchUsers();
@@ -119,6 +136,71 @@ const TeachersPage = () => {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const handleApproveUser = async (user) => {
+    if (!window.confirm(`Approve registration for ${user.first_name} ${user.last_name}?`)) {
+      return;
+    }
+    setActionLoading(user.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ account_status: 'approved' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(String(data.detail) || 'Failed to approve');
+      showToast(`${user.email} approved successfully.`);
+      fetchUsers();
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectUser = async (user) => {
+    setRejectingUser(user);
+    setRejectModal(true);
+    setRejectionReason('');
+  };
+
+  const confirmRejectUser = async () => {
+    if (!rejectionReason.trim()) {
+      showToast('Please provide a rejection reason.');
+      return;
+    }
+    setRejectModal(false);
+    setActionLoading(rejectingUser.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${rejectingUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ account_status: 'rejected', rejection_reason: rejectionReason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(String(data.detail) || 'Failed to reject');
+      showToast(`${rejectingUser.email} rejected.`);
+      fetchUsers();
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(null);
+      setRejectingUser(null);
+    }
+  };
+
+  const cancelRejectUser = () => {
+    setRejectModal(false);
+    setRejectingUser(null);
+    setRejectionReason('');
   };
 
   const updateFilter = (filterKey, value) => {
@@ -143,11 +225,11 @@ const TeachersPage = () => {
   };
 
   const stats = {
-    total: users.length,
-    approved: users.filter(u => u.account_status === 'approved').length,
-    pending: users.filter(u => u.account_status === 'pending').length,
-    rejected: users.filter(u => u.account_status === 'rejected').length,
-    inactive: users.filter(u => u.account_status === 'inactive').length,
+    total: allUsers.length,
+    approved: allUsers.filter(u => u.account_status === 'approved').length,
+    pending: allUsers.filter(u => u.account_status === 'pending').length,
+    rejected: allUsers.filter(u => u.account_status === 'rejected').length,
+    inactive: allUsers.filter(u => u.account_status === 'inactive').length,
   };
 
   if (loading) {
@@ -210,6 +292,8 @@ const TeachersPage = () => {
         teachers={users}
         onToggleStatus={handleToggleStatus}
         onResetPassword={handleResetPassword}
+        onApproveUser={handleApproveUser}
+        onRejectUser={handleRejectUser}
         getStatusBadgeClass={getStatusBadgeClass}
         actionLoading={actionLoading}
       />
@@ -217,6 +301,34 @@ const TeachersPage = () => {
       <div className="teachers-footer">
         <p>Showing {users.length} teacher accounts</p>
       </div>
+
+      {rejectModal && rejectingUser && (
+        <div className="modal-overlay">
+          <div className="modal-dialog">
+            <div className="modal-header">
+              <h3>Reject Registration</h3>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to reject the registration for <strong>{rejectingUser.first_name} {rejectingUser.last_name}</strong>?</p>
+              <textarea
+                className="modal-textarea"
+                placeholder="Enter the reason for rejection..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel" onClick={cancelRejectUser}>
+                Cancel
+              </button>
+              <button className="modal-btn reject" onClick={confirmRejectUser} disabled={!rejectionReason.trim()}>
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && <div className="profile-toast">{toast}</div>}
     </div>

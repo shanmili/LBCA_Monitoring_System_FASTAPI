@@ -16,6 +16,35 @@ const DEVICE_ID = (() => {
 })();
 
 /**
+ * Extract human-readable error message from API response
+ */
+const extractErrorMessage = (data, defaultMessage = 'An error occurred') => {
+  if (!data) return defaultMessage;
+  
+  // If data.detail is a string, use it
+  if (typeof data.detail === 'string') return data.detail;
+  
+  // If data.detail is an object, try to extract message
+  if (data.detail && typeof data.detail === 'object') {
+    if (data.detail.message) return data.detail.message;
+    if (data.detail.error) return data.detail.error;
+    // If it has multiple errors, join them
+    if (Array.isArray(data.detail)) {
+      return data.detail.map(err => 
+        typeof err === 'string' ? err : err.message || err.error || 'Unknown error'
+      ).join(', ');
+    }
+  }
+  
+  // Check for other common error fields
+  if (data.message) return data.message;
+  if (data.error) return data.error;
+  
+  // Last resort
+  return defaultMessage;
+};
+
+/**
  * AuthController manages all pre-login screens:
  * login → (2FA OTP) → app
  * login → forgot password → OTP → reset password → login
@@ -52,7 +81,7 @@ const AuthController = ({ onAuthSuccess }) => {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(String(data.detail) || 'Login failed');
+      if (!res.ok) throw new Error(extractErrorMessage(data, 'Login failed'));
 
       if (data.requires_2fa) {
         setPendingUserId(data.user_id);
@@ -86,7 +115,7 @@ const AuthController = ({ onAuthSuccess }) => {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(String(data.detail) || 'Invalid OTP');
+      if (!res.ok) throw new Error(extractErrorMessage(data, 'Invalid OTP'));
 
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
@@ -115,7 +144,7 @@ const AuthController = ({ onAuthSuccess }) => {
         body: JSON.stringify(formData),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(String(data.detail) || 'Registration failed');
+      if (!res.ok) throw new Error(extractErrorMessage(data, 'Registration failed'));
       // RegisterScreen handles its own success state
     } catch (err) {
       setError(err.message || err.toString() || 'Registration failed');
@@ -141,9 +170,9 @@ const AuthController = ({ onAuthSuccess }) => {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(String(data.detail) || 'Request failed');
+      if (!res.ok) throw new Error(extractErrorMessage(data, 'Request failed'));
       setPendingEmail(email);
-      // ForgotPasswordScreen shows success + "Enter OTP" button
+      setScreen('otp-reset'); // Go directly to OTP screen
     } catch (err) {
       setError(err.message || err.toString() || 'Request failed');
     } finally {
@@ -152,17 +181,31 @@ const AuthController = ({ onAuthSuccess }) => {
   };
 
   // ─── Verify Reset OTP ─────────────────────────────────────
-  const handleVerifyResetOtp = async (code) => {
-    // We just store the code and move to new password screen
-    // The actual validation happens when submitting the new password
+const handleVerifyResetOtp = async (code) => {
+  setIsLoading(true);
+  clearError();
+  try {
+    const res = await fetch(`${API_BASE}/api/password-reset/validate-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: pendingEmail, code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(extractErrorMessage(data, 'Invalid OTP'));
+    
+    // OTP is valid, store it and proceed to password form
     setPendingOtpCode(code);
-    clearError();
     setScreen('reset-password');
-  };
+  } catch (err) {
+    setError(err.message || err.toString() || 'Invalid OTP');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  const handleResendResetOtp = async () => {
-    await handleForgotPassword(pendingEmail);
-  };
+const handleResendResetOtp = async () => {
+  await handleForgotPassword(pendingEmail);
+};
 
   // ─── Reset Password ───────────────────────────────────────
   const handleResetPassword = async ({ token, new_password, confirm_password }) => {
@@ -175,7 +218,7 @@ const AuthController = ({ onAuthSuccess }) => {
         body: JSON.stringify({ token, new_password, confirm_password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(String(data.detail) || 'Reset failed');
+      if (!res.ok) throw new Error(extractErrorMessage(data, 'Reset failed'));
       setScreen('login');
       // Optionally show a success toast here
     } catch (err) {

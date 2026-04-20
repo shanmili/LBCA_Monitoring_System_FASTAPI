@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import '../styles/Login.css';
 
 const ResetPasswordScreen = ({ onSubmit, onBack, error, isLoading, otpCode }) => {
@@ -66,24 +67,34 @@ const ResetPasswordScreen = ({ onSubmit, onBack, error, isLoading, otpCode }) =>
                 disabled={isLoading}
                 autoComplete="new-password"
               />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowNew(!showNew)}
-                tabIndex={-1}
-              >
-                {showNew ? '🙈' : '👁'}
-              </button>
+              {newPassword && (
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowNew((prev) => !prev);
+                  }}
+                  tabIndex={-1}
+                  aria-label={showNew ? 'Hide password' : 'Show password'}
+                >
+                  {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              )}
             </div>
             {newPassword && (
               <div className="password-strength">
                 <div
                   className="strength-bar"
                   style={{
-                    width: strength.label === 'Too short' ? '20%'
-                      : strength.label === 'Weak' ? '35%'
-                      : strength.label === 'Good' ? '65%'
-                      : '100%',
+                    width:
+                      strength.label === 'Too short'
+                        ? '20%'
+                        : strength.label === 'Weak'
+                        ? '35%'
+                        : strength.label === 'Good'
+                        ? '65%'
+                        : '100%',
                     backgroundColor: strength.color,
                   }}
                 />
@@ -107,14 +118,20 @@ const ResetPasswordScreen = ({ onSubmit, onBack, error, isLoading, otpCode }) =>
                 disabled={isLoading}
                 autoComplete="new-password"
               />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowConfirm(!showConfirm)}
-                tabIndex={-1}
-              >
-                {showConfirm ? '🙈' : '👁'}
-              </button>
+              {confirmPassword && (
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowConfirm((prev) => !prev);
+                  }}
+                  tabIndex={-1}
+                  aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              )}
             </div>
             {confirmPassword && newPassword !== confirmPassword && (
               <span className="field-error">Passwords do not match</span>
@@ -139,12 +156,6 @@ const ResetPasswordScreen = ({ onSubmit, onBack, error, isLoading, otpCode }) =>
             )}
           </button>
         </form>
-
-        <div className="login-footer">
-          <button type="button" className="back-link" onClick={onBack}>
-            ← Back
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -28,11 +28,6 @@ const ForgotPasswordScreen = ({ onSubmit, onBack, error, isLoading }) => {
           <button type="button" className="btn-submit" onClick={() => onSubmit(email, true)}>
             Enter OTP
           </button>
-          <div className="login-footer">
-            <button type="button" className="back-link" onClick={onBack}>
-              ← Back to Sign In
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -79,12 +74,6 @@ const ForgotPasswordScreen = ({ onSubmit, onBack, error, isLoading }) => {
             )}
           </button>
         </form>
-
-        <div className="login-footer">
-          <button type="button" className="back-link" onClick={onBack}>
-            ← Back to Sign In
-          </button>
-        </div>
       </div>
     </div>
   );

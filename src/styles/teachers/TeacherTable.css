@@ -128,7 +128,7 @@
 }
 
 .action-cell {
-  min-width: 180px;
+  min-width: 120px;
 }
 
 .action-buttons-container {
@@ -137,27 +137,84 @@
   flex-wrap: wrap;
 }
 
-.reset-password-btn {
-  display: inline-flex;
+.icon-action-buttons {
+  display: flex;
+  gap: 0.5rem;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  border: none;
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
   border-radius: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
-  background-color: #e0e7ff;
+  padding: 0;
+}
+
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  background-color: var(--primary);
+  color: white;
+}
+
+.icon-btn.approve {
+  border-color: var(--success-text);
+  color: var(--success-text);
+}
+
+.icon-btn.approve:hover:not(:disabled) {
+  background-color: var(--success-text);
+  color: white;
+}
+
+.icon-btn.reject {
+  border-color: var(--danger-text);
+  color: var(--danger-text);
+}
+
+.icon-btn.reject:hover:not(:disabled) {
+  background-color: var(--danger-text);
+  color: white;
+}
+
+.icon-btn.deactivate {
+  border-color: var(--danger-text);
+  color: var(--danger-text);
+}
+
+.icon-btn.deactivate:hover:not(:disabled) {
+  background-color: var(--danger-text);
+  color: white;
+}
+
+.icon-btn.activate {
+  border-color: var(--success-text);
+  color: var(--success-text);
+}
+
+.icon-btn.activate:hover:not(:disabled) {
+  background-color: var(--success-text);
+  color: white;
+}
+
+.icon-btn.reset-password {
+  border-color: #4338ca;
   color: #4338ca;
 }
 
-.reset-password-btn:hover {
+.icon-btn.reset-password:hover:not(:disabled) {
   background-color: #4338ca;
   color: white;
 }
 
-.reset-password-btn:disabled {
+.icon-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

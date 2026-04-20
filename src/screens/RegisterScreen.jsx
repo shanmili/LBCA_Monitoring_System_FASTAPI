@@ -13,11 +13,11 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
     confirm_password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [focused, setFocused] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [localError, setLocalError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }));
+  const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const passwordStrength = (pwd) => {
     if (!pwd) return { label: '', color: '', width: '0%' };
@@ -117,7 +117,7 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
             <span className="logo-text">L</span>
           </div>
           <h1 className="title">Create Account</h1>
-          <p className="subtitle">Register as a teacher — requires admin approval.</p>
+          <p className="subtitle">Register your account to get started.</p>
         </div>
 
         {(error || localError) && (
@@ -127,7 +127,9 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">First Name <span className="required">*</span></label>
+              <label className="form-label">
+                First Name <span className="required">*</span>
+              </label>
               <input
                 type="text"
                 className="form-input"
@@ -139,7 +141,9 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Last Name <span className="required">*</span></label>
+              <label className="form-label">
+                Last Name <span className="required">*</span>
+              </label>
               <input
                 type="text"
                 className="form-input"
@@ -153,7 +157,9 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Middle Name <span className="optional">(optional)</span></label>
+            <label className="form-label">
+              Middle Name <span className="optional">(optional)</span>
+            </label>
             <input
               type="text"
               className="form-input"
@@ -165,7 +171,9 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email Address <span className="required">*</span></label>
+            <label className="form-label">
+              Email Address <span className="required">*</span>
+            </label>
             <input
               type="email"
               className="form-input"
@@ -179,7 +187,9 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Contact Number <span className="required">*</span></label>
+            <label className="form-label">
+              Contact Number <span className="required">*</span>
+            </label>
             <input
               type="tel"
               className="form-input"
@@ -192,7 +202,9 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password <span className="required">*</span></label>
+            <label className="form-label">
+              Password <span className="required">*</span>
+            </label>
             <div className="password-wrapper">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -200,18 +212,20 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
                 placeholder="Min. 6 characters"
                 value={form.password}
                 onChange={set('password')}
-                onFocus={() => setFocused(true)}
-                onBlur={() => { setFocused(false); setShowPassword(false); }}
                 required
                 disabled={isLoading}
                 autoComplete="new-password"
               />
-              {form.password && focused && (
+              {form.password && (
                 <button
                   type="button"
                   className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowPassword((prev) => !prev);
+                  }}
                   tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -219,24 +233,47 @@ const RegisterScreen = ({ onRegister, onBack, error, isLoading }) => {
             </div>
             {form.password && (
               <div className="password-strength">
-                <div className="strength-bar" style={{ width: strength.width, backgroundColor: strength.color }} />
-                <span className="strength-label" style={{ color: strength.color }}>{strength.label}</span>
+                <div
+                  className="strength-bar"
+                  style={{ width: strength.width, backgroundColor: strength.color }}
+                />
+                <span className="strength-label" style={{ color: strength.color }}>
+                  {strength.label}
+                </span>
               </div>
             )}
           </div>
 
           <div className="form-group">
-            <label className="form-label">Confirm Password <span className="required">*</span></label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Re-enter password"
-              value={form.confirm_password}
-              onChange={set('confirm_password')}
-              required
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
+            <label className="form-label">
+              Confirm Password <span className="required">*</span>
+            </label>
+            <div className="password-wrapper">
+              <input
+                type={showConfirm ? 'text' : 'password'}
+                className="form-input"
+                placeholder="Re-enter password"
+                value={form.confirm_password}
+                onChange={set('confirm_password')}
+                required
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              {form.confirm_password && (
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowConfirm((prev) => !prev);
+                  }}
+                  tabIndex={-1}
+                  aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              )}
+            </div>
             {form.confirm_password && form.password !== form.confirm_password && (
               <span className="field-error">Passwords do not match</span>
             )}

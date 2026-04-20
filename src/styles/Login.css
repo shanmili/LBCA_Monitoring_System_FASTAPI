@@ -249,6 +249,25 @@
   to { transform: rotate(360deg); }
 }
 
+.btn-secondary {
+  width: 100%;
+  padding: 0.7rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.25rem;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--text-secondary);
+}
+
 /* ── Links ── */
 .forgot-link {
   background: none;
@@ -289,7 +308,7 @@
 
 /* ── Footer ── */
 .login-footer {
-  margin-top: 1.25rem;
+  margin-top: 0.5rem;
   text-align: center;
 }
 
@@ -914,4 +933,9 @@
     height: 46px;
     font-size: 1.2rem;
   }
+}
+
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
 }
