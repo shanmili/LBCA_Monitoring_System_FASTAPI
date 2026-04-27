@@ -9,6 +9,7 @@ import '../../styles/layout/Header.css';
 const Header = ({ onToggleSidebar, onLogout, activeTab, onNavigate, adminPhoto, userRole = 'admin' }) => {
   const { pageTitle } = useHeaderState(activeTab);
   const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
+  const showHeaderSearch = activeTab === 'students' || activeTab === 'teachers';
 
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
@@ -32,15 +33,17 @@ const Header = ({ onToggleSidebar, onLogout, activeTab, onNavigate, adminPhoto, 
       </div>
 
       <div className="header-right">
-        <div className="search-container">
-          <input
-            type="text"
-            placeholder="Search..."
-            className="search-input"
-            aria-label="Search"
-          />
-          <Search className="search-icon" size={18} />
-        </div>
+        {showHeaderSearch && (
+          <div className="search-container">
+            <input
+              type="text"
+              placeholder="Search..."
+              className="search-input"
+              aria-label="Search"
+            />
+            <Search className="search-icon" size={18} />
+          </div>
+        )}
 
         <div className="notif-wrapper" ref={notifRef}>
           <div

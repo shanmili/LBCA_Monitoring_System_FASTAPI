@@ -18,7 +18,7 @@ import './styles/profileSetting/ProfileSetting.css';
 import { SchoolProvider } from './context/SchoolContext';
 import LoadingScreen from './components/common/LoadingScreen';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001';
 
 function AppContent() {
   const navigate = useNavigate();

@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001';
 
 function getToken() {
   return sessionStorage.getItem('access_token');
@@ -14,14 +14,24 @@ async function request(path, options = {}) {
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
+  const contentType = res.headers.get('content-type') || '';
+  const parseBody = async () => {
+    if (contentType.includes('application/json')) return res.json();
+    const text = await res.text();
+    if (text && /<!doctype html|<html/i.test(text)) {
+      return { detail: 'Server returned HTML instead of JSON. Check VITE_API_URL and backend port.' };
+    }
+    return { detail: text || res.statusText };
+  };
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    const err = await parseBody();
     throw new Error(err.detail || err.error || `Request failed: ${res.status}`);
   }
 
   // 204 No Content
   if (res.status === 204) return null;
-  return res.json();
+  return parseBody();
 }
 
 // ── Grade Levels ──────────────────────────────────────────────────────────────

@@ -39,6 +39,32 @@
   flex-wrap: wrap;
 }
 
+.teachers-search-row {
+  margin-bottom: 1rem;
+}
+
+.teachers-search-input {
+  width: 100%;
+  max-width: 360px;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.teachers-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(31, 71, 136, 0.12);
+}
+
+.teachers-search-input::placeholder {
+  color: var(--text-secondary);
+}
+
 .add-teacher-btn {
   display: flex;
   align-items: center;
@@ -149,6 +175,10 @@
     width: 100%;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .teachers-search-input {
+    max-width: 100%;
   }
   
   .add-teacher-btn {

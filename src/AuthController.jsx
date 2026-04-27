@@ -5,7 +5,7 @@ import OTPScreen from './screens/OTPScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './screens/ResetPassword';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001';
 const DEVICE_ID = (() => {
   let id = localStorage.getItem('device_id');
   if (!id) {
@@ -44,6 +44,19 @@ const extractErrorMessage = (data, defaultMessage = 'An error occurred') => {
   return defaultMessage;
 };
 
+const parseResponseBody = async (res) => {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return res.json();
+  }
+
+  const text = await res.text();
+  if (text && /<!doctype html|<html/i.test(text)) {
+    return { detail: 'Server returned HTML instead of JSON. Check VITE_API_URL and backend port.' };
+  }
+  return { detail: text || 'Unexpected non-JSON response from server' };
+};
+
 /**
  * AuthController manages all pre-login screens:
  * login → (2FA OTP) → app
@@ -80,12 +93,15 @@ const AuthController = ({ onAuthSuccess }) => {
           device_name: navigator.userAgent.slice(0, 100),
         }),
       });
-      const data = await res.json();
+      const data = await parseResponseBody(res);
       if (!res.ok) throw new Error(extractErrorMessage(data, 'Login failed'));
 
       if (data.requires_2fa) {
         setPendingUserId(data.user_id);
         setPendingEmail(email);
+        if (data.debug_otp) {
+          setError(`Development OTP: ${data.debug_otp}`);
+        }
         setScreen('otp-login');
       } else {
         localStorage.setItem('access_token', data.access_token);
@@ -114,7 +130,7 @@ const AuthController = ({ onAuthSuccess }) => {
           device_name: navigator.userAgent.slice(0, 100),
         }),
       });
-      const data = await res.json();
+      const data = await parseResponseBody(res);
       if (!res.ok) throw new Error(extractErrorMessage(data, 'Invalid OTP'));
 
       localStorage.setItem('access_token', data.access_token);
@@ -143,7 +159,7 @@ const AuthController = ({ onAuthSuccess }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const data = await res.json();
+      const data = await parseResponseBody(res);
       if (!res.ok) throw new Error(extractErrorMessage(data, 'Registration failed'));
       // RegisterScreen handles its own success state
     } catch (err) {
@@ -169,7 +185,7 @@ const AuthController = ({ onAuthSuccess }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json();
+      const data = await parseResponseBody(res);
       if (!res.ok) throw new Error(extractErrorMessage(data, 'Request failed'));
       setPendingEmail(email);
       setScreen('otp-reset'); // Go directly to OTP screen
@@ -190,7 +206,7 @@ const handleVerifyResetOtp = async (code) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: pendingEmail, code }),
     });
-    const data = await res.json();
+    const data = await parseResponseBody(res);
     if (!res.ok) throw new Error(extractErrorMessage(data, 'Invalid OTP'));
     
     // OTP is valid, store it and proceed to password form
@@ -217,7 +233,7 @@ const handleResendResetOtp = async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, new_password, confirm_password }),
       });
-      const data = await res.json();
+      const data = await parseResponseBody(res);
       if (!res.ok) throw new Error(extractErrorMessage(data, 'Reset failed'));
       setScreen('login');
       // Optionally show a success toast here

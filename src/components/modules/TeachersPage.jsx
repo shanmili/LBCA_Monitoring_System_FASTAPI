@@ -4,7 +4,7 @@ import TeacherTable from './teachers/TeacherTable';
 import TeacherFilter from './teachers/TeacherFilter';
 import '../../styles/teachers/TeachersPage.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001';
 
 const TeachersPage = () => {
   const [users, setUsers] = useState([]);
@@ -12,6 +12,7 @@ const TeachersPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('approved');
+  const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
   const [toast, setToast] = useState('');
   const [rejectModal, setRejectModal] = useState(false);
@@ -232,6 +233,23 @@ const TeachersPage = () => {
     inactive: allUsers.filter(u => u.account_status === 'inactive').length,
   };
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredUsers = users.filter((user) => {
+    if (!normalizedSearch) return true;
+
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
+    const idText = String(user.id || '').toLowerCase();
+    const emailText = String(user.email || '').toLowerCase();
+    const statusText = String(user.account_status || '').toLowerCase();
+
+    return (
+      fullName.includes(normalizedSearch) ||
+      idText.includes(normalizedSearch) ||
+      emailText.includes(normalizedSearch) ||
+      statusText.includes(normalizedSearch)
+    );
+  });
+
   if (loading) {
     return <div className="teachers-page"><div className="loading-state">Loading...</div></div>;
   }
@@ -253,6 +271,16 @@ const TeachersPage = () => {
             onFilterChange={updateFilter}
           />
         </div>
+      </div>
+
+      <div className="teachers-search-row">
+        <input
+          type="text"
+          className="teachers-search-input"
+          placeholder="Search by name, email, ID, or status"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
       <div className="teacher-stats">
@@ -289,7 +317,7 @@ const TeachersPage = () => {
       {error && <div className="approvals-error">{error}</div>}
 
       <TeacherTable 
-        teachers={users}
+        teachers={filteredUsers}
         onToggleStatus={handleToggleStatus}
         onResetPassword={handleResetPassword}
         onApproveUser={handleApproveUser}
@@ -299,7 +327,7 @@ const TeachersPage = () => {
       />
 
       <div className="teachers-footer">
-        <p>Showing {users.length} teacher accounts</p>
+        <p>Showing {filteredUsers.length} of {users.length} teacher accounts</p>
       </div>
 
       {rejectModal && rejectingUser && (
