@@ -71,7 +71,12 @@ export const studentApi = {
   update: (id, data) => request(`/api/students/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id) => request(`/api/students/${id}`, { method: 'DELETE' }),
 };
-
+// ── Staff/Teachers ────────────────────────────────────────────────────────
+export const staffApi = {
+  list: () => request('/api/users'),
+  get: (id) => request(`/api/users/${id}`),
+  me: () => request('/api/users/me'),
+};
 // ── Student Enrollments ───────────────────────────────────────────────────────
 export const enrollmentApi = {
   list: (params = {}) => {
@@ -90,4 +95,12 @@ export const enrollmentApi = {
   update: (id, data) =>
     request(`/api/enrollments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id) => request(`/api/enrollments/${id}`, { method: 'DELETE' }),
+};
+// ── Teacher Assignments ───────────────────────────────────────
+export const teacherAssignmentApi = {
+  list: (sectionId = null) =>
+    request(sectionId ? `/api/teacher-assignments/?section_id=${sectionId}` : '/api/teacher-assignments/'),
+  get: (id) => request(`/api/teacher-assignments/${id}`),
+  create: (data) => request('/api/teacher-assignments', { method: 'POST', body: JSON.stringify(data) }),
+  delete: (id) => request(`/api/teacher-assignments/${id}`, { method: 'DELETE' }),
 };
