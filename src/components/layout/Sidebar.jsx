@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import SidebarItem from './SidebarItem';
 import Logo from '../common/Logo';
 import '../../styles/layout/Sidebar.css';
@@ -8,14 +8,55 @@ import {
   GraduationCap,
   AlertTriangle,
   Menu,
-  CalendarDays,
   BookOpen,
-  Table2,
 } from 'lucide-react';
 
-const Sidebar = ({ isOpen, activeTab, onNavigate, onToggle, userRole = 'teacher', adminPhoto }) => {
-  const isAdmin = userRole === 'admin';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001';
+
+function getToken() {
+  return sessionStorage.getItem('access_token');
+}
+
+async function fetchAdminProfile() {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}/api/users/admin-profile`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to load admin profile');
+  return res.json();
+}
+
+const Sidebar = ({ isOpen, activeTab, onNavigate, onToggle, userRole = 'teacher' }) => {
+  const isAdmin   = userRole === 'admin';
   const isTeacher = userRole === 'teacher';
+
+  const [adminPhoto,     setAdminPhoto]     = useState(null);
+  const [adminFirstName, setAdminFirstName] = useState('');
+  const [adminLastName,  setAdminLastName]  = useState('');
+
+  // ── Always fetch the admin's profile for the sidebar logo ──────────────────
+  const loadAdminProfile = useCallback(() => {
+    fetchAdminProfile()
+      .then((data) => {
+        setAdminFirstName(data.first_name ?? '');
+        setAdminLastName(data.last_name   ?? '');
+        const pic = data.profile_pic ?? null;
+        setAdminPhoto(pic ? (pic.startsWith('/') ? `${API_BASE}${pic}` : pic) : null);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { loadAdminProfile(); }, [loadAdminProfile]);
+
+  // Re-fetch when window regains focus (e.g. admin just updated their photo)
+  useEffect(() => {
+    window.addEventListener('focus', loadAdminProfile);
+    return () => window.removeEventListener('focus', loadAdminProfile);
+  }, [loadAdminProfile]);
+
+  const adminInitials = (
+    (adminFirstName[0] ?? '') + (adminLastName[0] ?? '')
+  ).toUpperCase() || 'AD';
 
   return (
     <aside className={`sidebar ${isOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
@@ -25,7 +66,7 @@ const Sidebar = ({ isOpen, activeTab, onNavigate, onToggle, userRole = 'teacher'
         </button>
         <Logo
           adminPhoto={adminPhoto}
-          adminInitials={userRole === 'admin' ? 'AD' : 'TC'}
+          adminInitials={adminInitials}
           showText={isOpen}
         />
       </div>
@@ -74,11 +115,9 @@ const Sidebar = ({ isOpen, activeTab, onNavigate, onToggle, userRole = 'teacher'
           collapsed={!isOpen}
         />
 
-        {/* ── Admin-only Setup Section ── */}
         {isAdmin && (
           <>
             <div className="sidebar-divider" />
-
             <SidebarItem
               icon={BookOpen}
               label="Class Management"
