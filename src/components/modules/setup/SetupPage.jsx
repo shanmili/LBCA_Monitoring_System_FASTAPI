@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   BookOpen, CalendarDays, Layers, ChevronDown, ChevronRight,
-  Plus, Pencil, Trash2, CheckCircle, Clock, Group, AlertCircle, RefreshCw,
+  Plus, Pencil, Trash2, CheckCircle, Clock, Group, AlertCircle, RefreshCw, Users,
 } from 'lucide-react';
 import SchoolYearModal from './SchoolYearModal.jsx';
 import GradeLevelModal from './GradeLevelModal.jsx';
 import SectionModal from './SectionModal.jsx';
 import SubjectTable from './SubjectTable.jsx';
-import { gradeLevelApi, schoolYearApi, sectionApi } from '../../../services/api.js';
+import TeacherAssignmentModal from './TeacherAssignmentModal.jsx';
+import TeacherAssignmentTable from './TeacherAssignmentTable.jsx';
+import { gradeLevelApi, schoolYearApi, sectionApi, staffApi, teacherAssignmentApi } from '../../../services/api.js';
 import '../../../styles/setup/SetupPage.css';
 import '../../../styles/setup/UnifiedSetup.css';
 
@@ -57,6 +59,13 @@ const SetupPage = () => {
 
   const [saving, setSaving] = useState(false);
 
+  const [teachers, setTeachers] = useState([]);
+  const [taLoading, setTaLoading] = useState(true);
+  const [taError, setTaError] = useState(null);
+  const [taModalOpen, setTaModalOpen] = useState(false);
+  const [assignments, setAssignments] = useState([]);
+  const [taExpanded, setTaExpanded] = useState(true);
+
   const fetchSchoolYears = useCallback(async () => {
     setSyLoading(true); setSyError(null);
     try { setSchoolYears(await schoolYearApi.list()); }
@@ -78,11 +87,28 @@ const SetupPage = () => {
     finally { setSecLoading(false); }
   }, []);
 
+  const fetchTeachers = useCallback(async () => {
+    try {
+      const allStaff = await staffApi.list();
+      setTeachers(allStaff.filter(s => s.role === 'teacher' && s.is_active));
+    }
+    catch (err) { setTaError(`Failed to load teachers: ${err.message}`); }
+  }, []);
+
+  const fetchTeacherAssignments = useCallback(async () => {
+    setTaLoading(true); setTaError(null);
+    try { setAssignments(await teacherAssignmentApi.list()); }
+    catch (err) { setTaError(err.message); }
+    finally { setTaLoading(false); }
+  }, []);
+
   useEffect(() => {
     fetchSchoolYears();
     fetchGradeLevels();
     fetchSections();
-  }, [fetchSchoolYears, fetchGradeLevels, fetchSections]);
+    fetchTeachers();
+    fetchTeacherAssignments();
+  }, [fetchSchoolYears, fetchGradeLevels, fetchSections, fetchTeachers, fetchTeacherAssignments]);
 
   const handleSaveSY = async (data) => {
     setSaving(true);
@@ -141,6 +167,22 @@ const SetupPage = () => {
   const handleDeleteSec = async (id) => {
     if (!window.confirm('Delete this section?')) return;
     try { await sectionApi.delete(id); await fetchSections(); }
+    catch (err) { alert(`Failed to delete: ${err.message}`); }
+  };
+
+  const handleSaveTA = async (data) => {
+    setSaving(true);
+    try {
+      await teacherAssignmentApi.create(data);
+      setTaModalOpen(false);
+      await fetchTeacherAssignments();
+    } catch (err) { alert(`Failed to assign teacher: ${err.message}`); }
+    finally { setSaving(false); }
+  };
+
+  const handleDeleteTA = async (id) => {
+    if (!window.confirm('Delete this assignment?')) return;
+    try { await teacherAssignmentApi.delete(id); await fetchTeacherAssignments(); }
     catch (err) { alert(`Failed to delete: ${err.message}`); }
   };
 
@@ -310,6 +352,38 @@ const SetupPage = () => {
         )}
       </div>
 
+      {/* TEACHER ASSIGNMENTS */}
+      <div className="us-card">
+        <div className="us-card-header" onClick={() => setTaExpanded(v => !v)}>
+          <div className="us-card-title">
+            <Users size={18} />
+            <span>Teacher Assignments</span>
+            {!taLoading && <span className="us-count-badge">{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</span>}
+          </div>
+          <div className="us-card-actions" onClick={e => e.stopPropagation()}>
+            <button className="setup-add-btn us-add-btn" onClick={() => { setTaModalOpen(true); }}>
+              <Plus size={14} /> Add
+            </button>
+            <button className="us-chevron-btn">
+              {taExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+            </button>
+          </div>
+        </div>
+
+        {taExpanded && (
+          <div className="us-card-body">
+            {taError && <ErrorBanner message={taError} onRetry={fetchTeacherAssignments} />}
+            <div className="setup-table-card us-table-card">
+              <TeacherAssignmentTable
+                assignments={assignments}
+                onDelete={handleDeleteTA}
+                isLoading={taLoading}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       <SchoolYearModal
         isOpen={syModalOpen}
         onClose={() => { setSyModalOpen(false); setEditingSY(null); }}
@@ -332,6 +406,13 @@ const SetupPage = () => {
         gradeLevels={gradeLevels}
         prefillGradeId={prefillGrade}
         saving={saving}
+      />
+      <TeacherAssignmentModal
+        isOpen={taModalOpen}
+        onClose={() => setTaModalOpen(false)}
+        onSave={handleSaveTA}
+        teachers={teachers}
+        sections={sections}
       />
 
       {/* SUBJECTS */}

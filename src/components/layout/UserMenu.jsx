@@ -3,7 +3,7 @@ import { ChevronDown, User, Sun, LogOut } from 'lucide-react';
 import Theme from '../common/Theme.jsx';
 import '../../styles/layout/UserMenu.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function getToken() {
   return sessionStorage.getItem('access_token');
@@ -98,11 +98,11 @@ const UserMenu = ({ onLogout, onNavigate }) => {
             <span>Profile Settings</span>
           </button>
 
-          <button className="dropdown-item">
+          <div className="dropdown-item" style={{ pointerEvents: 'auto' }}>
             <Sun size={16} />
             <span>Theme</span>
             <Theme />
-          </button>
+          </div>
 
           <div className="dropdown-divider" />
 
