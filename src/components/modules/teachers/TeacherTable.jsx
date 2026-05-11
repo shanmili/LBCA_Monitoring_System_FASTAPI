@@ -1,15 +1,18 @@
 import '../../../styles/teachers/TeacherTable.css';
+import { Check, X, RotateCcw, Power, Key, Trash2, RefreshCw } from 'lucide-react';
 
-const TeacherTable = ({ teachers, onToggleStatus, onResetPassword, getStatusBadgeClass, actionLoading }) => {
-
-  const handleStatusToggle = (teacher) => {
-    const action = teacher.account_status === 'approved' ? 'deactivate' : 'activate';
-    const message = `Are you sure you want to ${action} the account "${teacher.first_name} ${teacher.last_name}"?`;
-    
-    if (window.confirm(message)) {
-      onToggleStatus(teacher);
-    }
-  };
+const TeacherTable = ({ 
+  teachers, 
+  onApproveUser, 
+  onRejectUser, 
+  onReacceptUser, 
+  onDeactivateUser, 
+  onResetPassword, 
+  getStatusBadgeClass, 
+  getDisplayStatus,
+  formatRole,
+  actionLoading 
+}) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -20,68 +23,90 @@ const TeacherTable = ({ teachers, onToggleStatus, onResetPassword, getStatusBadg
     });
   };
 
-  const getActionButtons = (teacher) => {
+  const renderActions = (teacher) => {
+    const isLoading = actionLoading === teacher.id;
+    
+    // Pending approval - show Accept/Reject
     if (teacher.account_status === 'pending') {
       return (
-        <>
+        <div className="action-buttons-container">
           <button 
-            className="reset-password-btn"
-            onClick={() => onResetPassword(teacher)}
-            disabled={actionLoading === teacher.id}
-            title="Reset password"
+            className="action-icon-btn approve"
+            onClick={() => onApproveUser(teacher)}
+            disabled={isLoading}
+            title="Approve"
           >
-            Reset PW
+            <Check size={18} />
           </button>
-          <span className="no-action">Awaiting Approval</span>
-        </>
+          <button 
+            className="action-icon-btn reject"
+            onClick={() => onRejectUser(teacher)}
+            disabled={isLoading}
+            title="Reject"
+          >
+            <X size={18} />
+          </button>
+        </div>
       );
     }
     
-    return (
-      <>
-        {teacher.account_status === 'approved' && (
+    // Rejected - show Re-accept button only
+    if (teacher.account_status === 'rejected') {
+      return (
+        <div className="action-buttons-container">
           <button 
-            className="status-toggle active"
-            onClick={() => handleStatusToggle(teacher)}
-            disabled={actionLoading === teacher.id}
-            title="Deactivate account"
+            className="action-icon-btn reaccept"
+            onClick={() => onReacceptUser(teacher)}
+            disabled={isLoading}
+            title="Re-accept"
           >
-            Deactivate
+            <RotateCcw size={18} />
           </button>
-        )}
-        
-        {teacher.account_status === 'inactive' && (
+        </div>
+      );
+    }
+    
+    // Inactive - show Reactivate button only
+    if (teacher.account_status === 'inactive') {
+      return (
+        <div className="action-buttons-container">
           <button 
-            className="status-toggle inactive"
-            onClick={() => handleStatusToggle(teacher)}
-            disabled={actionLoading === teacher.id}
-            title="Reactivate account"
+            className="action-icon-btn reactivate"
+            onClick={() => onReacceptUser(teacher)}
+            disabled={isLoading}
+            title="Reactivate"
           >
-            Activate
+            <RefreshCw size={18} />
           </button>
-        )}
-        
-        {teacher.account_status === 'rejected' && (
+        </div>
+      );
+    }
+    
+    // Approved/Active - show Reset Password and Trash/Deactivate
+    if (teacher.account_status === 'approved') {
+      return (
+        <div className="action-buttons-container">
           <button 
-            className="status-toggle reactivate"
-            onClick={() => handleStatusToggle(teacher)}
-            disabled={actionLoading === teacher.id}
-            title="Approve this account"
+            className="action-icon-btn reset-password"
+            onClick={() => onResetPassword(teacher)}
+            disabled={isLoading}
+            title="Reset Password"
           >
-            Approve
+            <Key size={18} />
           </button>
-        )}
-        
-        <button 
-          className="reset-password-btn"
-          onClick={() => onResetPassword(teacher)}
-          disabled={actionLoading === teacher.id}
-          title="Reset password"
-        >
-          Reset PW
-        </button>
-      </>
-    );
+          <button 
+            className="action-icon-btn deactivate"
+            onClick={() => onDeactivateUser(teacher)}
+            disabled={isLoading}
+            title="Deactivate"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
+      );
+    }
+    
+    return null;
   };
 
   return (
@@ -107,15 +132,13 @@ const TeacherTable = ({ teachers, onToggleStatus, onResetPassword, getStatusBadg
                 <td>{teacher.email}</td>
                 <td>
                   <span className={getStatusBadgeClass(teacher.account_status)}>
-                    {teacher.account_status}
+                    {getDisplayStatus(teacher.account_status)}
                   </span>
                 </td>
-                <td>{teacher.role || 'teacher'}</td>
+                <td>{formatRole(teacher.role)}</td>
                 <td>{formatDate(teacher.created_at)}</td>
                 <td className="action-cell">
-                  <div className="action-buttons-container">
-                    {getActionButtons(teacher)}
-                  </div>
+                  {renderActions(teacher)}
                 </td>
               </tr>
             ))

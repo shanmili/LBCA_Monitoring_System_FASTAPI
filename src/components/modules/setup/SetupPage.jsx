@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   BookOpen, CalendarDays, Layers, ChevronDown, ChevronRight,
-  Plus, Pencil, Trash2, CheckCircle, Clock, Group, AlertCircle, RefreshCw, Users,
+  Plus, Pencil, Trash2, CheckCircle, Clock, Group, AlertCircle, RefreshCw,
+  Calendar, MapPin, Save, X as XIcon
 } from 'lucide-react';
 import SchoolYearModal from './SchoolYearModal.jsx';
 import GradeLevelModal from './GradeLevelModal.jsx';
 import SectionModal from './SectionModal.jsx';
 import SubjectTable from './SubjectTable.jsx';
-import TeacherAssignmentModal from './TeacherAssignmentModal.jsx';
-import TeacherAssignmentTable from './TeacherAssignmentTable.jsx';
-import { gradeLevelApi, schoolYearApi, sectionApi, staffApi, teacherAssignmentApi } from '../../../services/api.js';
+import { gradeLevelApi, schoolYearApi, sectionApi, staffApi, subjectApi, classScheduleApi } from '../../../services/api.js';
 import '../../../styles/setup/SetupPage.css';
 import '../../../styles/setup/UnifiedSetup.css';
 
@@ -33,6 +32,281 @@ const ErrorBanner = ({ message, onRetry }) => (
     )}
   </div>
 );
+
+// Schedule Row Component for each subject
+const ScheduleRow = ({ subject, schedules, onSave, onDelete, teachers, days, saving, schoolYearId, sectionId }) => {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
+  const [formData, setFormData] = useState({
+    day_of_week: 'Monday',
+    start_time: '08:00',
+    end_time: '09:00',
+    room: '',
+    teacher_id: '',
+  });
+
+  const timeSlots = [];
+  for (let hour = 7; hour <= 17; hour++) {
+    for (let minute of ['00', '30']) {
+      const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+      timeSlots.push(time);
+    }
+  }
+
+  const handleEdit = (schedule) => {
+    setEditingSchedule(schedule);
+    setFormData({
+      day_of_week: schedule.day_of_week,
+      start_time: schedule.start_time,
+      end_time: schedule.end_time,
+      room: schedule.room,
+      teacher_id: schedule.teacher_id,
+    });
+    setShowAddForm(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.room.trim()) {
+      alert('Please enter a room');
+      return;
+    }
+    if (!formData.teacher_id) {
+      alert('Please select a teacher');
+      return;
+    }
+    if (formData.end_time <= formData.start_time) {
+      alert('End time must be after start time');
+      return;
+    }
+
+    await onSave({
+      schedule_id: editingSchedule?.class_schedule_id || null,
+      subject_id: subject.subject_id,
+      section_id: sectionId,
+      school_year_id: schoolYearId,
+      day_of_week: formData.day_of_week,
+      start_time: formData.start_time,
+      end_time: formData.end_time,
+      room: formData.room,
+      teacher_id: formData.teacher_id,
+    });
+
+    setShowAddForm(false);
+    setEditingSchedule(null);
+    setFormData({
+      day_of_week: 'Monday',
+      start_time: '08:00',
+      end_time: '09:00',
+      room: '',
+      teacher_id: '',
+    });
+  };
+
+  const handleCancel = () => {
+    setShowAddForm(false);
+    setEditingSchedule(null);
+    setFormData({
+      day_of_week: 'Monday',
+      start_time: '08:00',
+      end_time: '09:00',
+      room: '',
+      teacher_id: '',
+    });
+  };
+
+  return (
+    <div className="schedule-subject-row" style={{
+      borderBottom: '1px solid #e5e7eb',
+      marginBottom: '8px'
+    }}>
+      {/* Subject Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 16px',
+        backgroundColor: '#f9fafb',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div>
+          <span style={{ fontWeight: 600, color: '#1f2937' }}>{subject.subject_name}</span>
+          <span style={{ fontSize: '12px', color: '#6b7280', marginLeft: '8px' }}>({subject.subject_code})</span>
+        </div>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          disabled={saving}
+          style={{
+            padding: '4px 12px',
+            background: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '12px'
+          }}
+        >
+          <Plus size={14} /> Add Schedule
+        </button>
+      </div>
+
+      {/* Existing Schedules */}
+      {schedules.map(schedule => (
+        <div key={schedule.class_schedule_id} style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 16px',
+          paddingLeft: '32px',
+          backgroundColor: '#ffffff',
+          borderBottom: '1px solid #e5e7eb',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ background: '#e0e7ff', padding: '4px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 500 }}>
+              {schedule.day_of_week}
+            </span>
+            <span style={{ fontSize: '13px' }}>{schedule.start_time} - {schedule.end_time}</span>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Room: {schedule.room}</span>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Teacher: {schedule.teacher_name || 'Unknown'}</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => handleEdit(schedule)}
+              disabled={saving}
+              style={{
+                padding: '4px 8px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              <Pencil size={12} />
+            </button>
+            <button
+              onClick={() => onDelete(schedule.class_schedule_id)}
+              disabled={saving}
+              style={{
+                padding: '4px 8px',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {/* Add/Edit Form */}
+      {showAddForm && (
+        <div style={{
+          padding: '16px',
+          paddingLeft: '32px',
+          backgroundColor: '#fef3c7',
+          borderTop: '1px solid #e5e7eb'
+        }}>
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}>
+            <select
+              value={formData.day_of_week}
+              onChange={(e) => setFormData(prev => ({ ...prev, day_of_week: e.target.value }))}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb', minWidth: '100px' }}
+            >
+              {days.map(day => <option key={day} value={day}>{day}</option>)}
+            </select>
+
+            <select
+              value={formData.start_time}
+              onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb', minWidth: '80px' }}
+            >
+              {timeSlots.map(time => <option key={time} value={time}>{time}</option>)}
+            </select>
+
+            <span>to</span>
+
+            <select
+              value={formData.end_time}
+              onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb', minWidth: '80px' }}
+            >
+              {timeSlots.map(time => {
+                if (time > formData.start_time) {
+                  return <option key={time} value={time}>{time}</option>;
+                }
+                return null;
+              }).filter(Boolean)}
+            </select>
+
+            <input
+              type="text"
+              placeholder="Room"
+              value={formData.room}
+              onChange={(e) => setFormData(prev => ({ ...prev, room: e.target.value }))}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb', width: '100px' }}
+            />
+
+            <select
+              value={formData.teacher_id}
+              onChange={(e) => setFormData(prev => ({ ...prev, teacher_id: e.target.value }))}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb', minWidth: '150px' }}
+            >
+              <option value="">Select Teacher</option>
+              {teachers.map(teacher => (
+                <option key={teacher.id} value={teacher.id}>{teacher.first_name} {teacher.last_name}</option>
+              ))}
+            </select>
+
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              style={{
+                padding: '6px 12px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Save size={14} /> {editingSchedule ? 'Update' : 'Save'}
+            </button>
+            <button
+              onClick={handleCancel}
+              style={{
+                padding: '6px 12px',
+                background: '#6b7280',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SetupPage = () => {
   const [schoolYears, setSchoolYears] = useState([]);
@@ -58,13 +332,20 @@ const SetupPage = () => {
   const [prefillGrade, setPrefillGrade] = useState(null);
 
   const [saving, setSaving] = useState(false);
-
   const [teachers, setTeachers] = useState([]);
-  const [taLoading, setTaLoading] = useState(true);
-  const [taError, setTaError] = useState(null);
-  const [taModalOpen, setTaModalOpen] = useState(false);
-  const [assignments, setAssignments] = useState([]);
-  const [taExpanded, setTaExpanded] = useState(true);
+  const [subjects, setSubjects] = useState([]);
+
+  // Schedule Matrix State
+  const [schedules, setSchedules] = useState([]);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [scheduleError, setScheduleError] = useState(null);
+  const [scheduleExpanded, setScheduleExpanded] = useState(true);
+  const [selectedGradeId, setSelectedGradeId] = useState('');
+  const [selectedSectionId, setSelectedSectionId] = useState('');
+  const [filteredSubjects, setFilteredSubjects] = useState([]);
+  const [subjectSchedules, setSubjectSchedules] = useState({});
+
+  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
   const fetchSchoolYears = useCallback(async () => {
     setSyLoading(true); setSyError(null);
@@ -90,16 +371,44 @@ const SetupPage = () => {
   const fetchTeachers = useCallback(async () => {
     try {
       const allStaff = await staffApi.list();
-      setTeachers(allStaff.filter(s => s.role === 'teacher' && s.is_active));
+      // Filter only teachers with role 'teacher' and active
+      const teacherList = allStaff.filter(s => s.role === 'teacher');
+      console.log('Teachers loaded:', teacherList);
+      setTeachers(teacherList);
+    } catch (err) { 
+      console.error('Failed to load teachers:', err);
+      setTeachers([]);
     }
-    catch (err) { setTaError(`Failed to load teachers: ${err.message}`); }
   }, []);
 
-  const fetchTeacherAssignments = useCallback(async () => {
-    setTaLoading(true); setTaError(null);
-    try { setAssignments(await teacherAssignmentApi.list()); }
-    catch (err) { setTaError(err.message); }
-    finally { setTaLoading(false); }
+  const fetchSubjects = useCallback(async () => {
+    try { 
+      const data = await subjectApi.list();
+      setSubjects(data);
+    } catch (err) { 
+      console.error('Failed to load subjects:', err);
+      setSubjects([]);
+    }
+  }, []);
+
+  const fetchSchedules = useCallback(async () => {
+    setScheduleLoading(true); setScheduleError(null);
+    try {
+      const data = await classScheduleApi.list();
+      setSchedules(data);
+      
+      // Group schedules by subject
+      const grouped = {};
+      data.forEach(schedule => {
+        if (!grouped[schedule.subject_id]) grouped[schedule.subject_id] = [];
+        grouped[schedule.subject_id].push(schedule);
+      });
+      setSubjectSchedules(grouped);
+    } catch (err) { 
+      setScheduleError(err.message); 
+      setSchedules([]);
+    }
+    finally { setScheduleLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -107,8 +416,30 @@ const SetupPage = () => {
     fetchGradeLevels();
     fetchSections();
     fetchTeachers();
-    fetchTeacherAssignments();
-  }, [fetchSchoolYears, fetchGradeLevels, fetchSections, fetchTeachers, fetchTeacherAssignments]);
+    fetchSubjects();
+  }, [fetchSchoolYears, fetchGradeLevels, fetchSections, fetchTeachers, fetchSubjects]);
+
+  useEffect(() => {
+    fetchSchedules();
+  }, [fetchSchedules]);
+
+  // Filter subjects when grade/section changes
+  useEffect(() => {
+    if (selectedSectionId) {
+      const section = sections.find(s => s.section_id === parseInt(selectedSectionId));
+      if (section) {
+        const gradeSubjects = subjects.filter(s => s.grade_level_id === section.grade_level);
+        setFilteredSubjects(gradeSubjects);
+      } else {
+        setFilteredSubjects([]);
+      }
+    } else if (selectedGradeId) {
+      const gradeSubjects = subjects.filter(s => s.grade_level_id === parseInt(selectedGradeId));
+      setFilteredSubjects(gradeSubjects);
+    } else {
+      setFilteredSubjects([]);
+    }
+  }, [selectedGradeId, selectedSectionId, subjects, sections]);
 
   const handleSaveSY = async (data) => {
     setSaving(true);
@@ -170,20 +501,40 @@ const SetupPage = () => {
     catch (err) { alert(`Failed to delete: ${err.message}`); }
   };
 
-  const handleSaveTA = async (data) => {
+  // Schedule Handlers
+  const handleSaveSchedule = async (data) => {
     setSaving(true);
     try {
-      await teacherAssignmentApi.create(data);
-      setTaModalOpen(false);
-      await fetchTeacherAssignments();
-    } catch (err) { alert(`Failed to assign teacher: ${err.message}`); }
-    finally { setSaving(false); }
+      if (data.schedule_id) {
+        alert('Update functionality coming soon');
+      } else {
+        await classScheduleApi.create({
+          school_year_id: data.school_year_id,
+          section_id: data.section_id,
+          subject_id: data.subject_id,
+          teacher_id: data.teacher_id,
+          day_of_week: data.day_of_week,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          room: data.room,
+        });
+      }
+      await fetchSchedules();
+    } catch (err) {
+      alert(`Failed to save schedule: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteTA = async (id) => {
-    if (!window.confirm('Delete this assignment?')) return;
-    try { await teacherAssignmentApi.delete(id); await fetchTeacherAssignments(); }
-    catch (err) { alert(`Failed to delete: ${err.message}`); }
+  const handleDeleteSchedule = async (scheduleId) => {
+    if (!window.confirm('Delete this schedule?')) return;
+    try {
+      await classScheduleApi.delete(scheduleId);
+      await fetchSchedules();
+    } catch (err) {
+      alert(`Failed to delete schedule: ${err.message}`);
+    }
   };
 
   const openAddSection = (gradeId) => {
@@ -192,6 +543,16 @@ const SetupPage = () => {
   };
 
   const current = schoolYears.find(sy => sy.is_current);
+  const currentSchoolYearId = current?.school_year_id || (schoolYears[0]?.school_year_id);
+
+  const availableSections = selectedGradeId 
+    ? sections.filter(s => s.grade_level === parseInt(selectedGradeId))
+    : sections;
+
+  const handleGradeChange = (gradeId) => {
+    setSelectedGradeId(gradeId);
+    setSelectedSectionId('');
+  };
 
   return (
     <div className="setup-page unified-setup">
@@ -201,7 +562,7 @@ const SetupPage = () => {
             <BookOpen size={24} />
             <h2>Class Management</h2>
           </div>
-          <p className="setup-header-subtitle">Configure school years, grade levels, and sections</p>
+          <p className="setup-header-subtitle">Configure school years, grade levels, sections, subjects, and class schedules</p>
         </div>
       </div>
 
@@ -252,8 +613,8 @@ const SetupPage = () => {
                       </td>
                       <td>
                         <div className="setup-actions">
-                          <button className="setup-action-btn edit" onClick={() => { setEditingSY(sy); setSyModalOpen(true); }} title="Edit"><Pencil size={14} /></button>
-                          <button className="setup-action-btn delete" onClick={() => handleDeleteSY(sy.school_year_id)} title="Delete" disabled={sy.is_current}><Trash2 size={14} /></button>
+                          <button className="setup-action-btn edit" onClick={() => { setEditingSY(sy); setSyModalOpen(true); }}><Pencil size={14} /></button>
+                          <button className="setup-action-btn delete" onClick={() => handleDeleteSY(sy.school_year_id)} disabled={sy.is_current}><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>
@@ -309,9 +670,9 @@ const SetupPage = () => {
                       </span>
                     </div>
                     <div className="us-grade-right" onClick={e => e.stopPropagation()}>
-                      <button className="us-inline-add-btn" onClick={() => openAddSection(gl.grade_level_id)} title="Add section"><Plus size={13} /> Section</button>
-                      <button className="setup-action-btn edit" onClick={() => { setEditingGL(gl); setGlModalOpen(true); }} title="Edit grade"><Pencil size={13} /></button>
-                      <button className="setup-action-btn delete" onClick={() => handleDeleteGL(gl.grade_level_id)} title="Delete grade"><Trash2 size={13} /></button>
+                      <button className="us-inline-add-btn" onClick={() => openAddSection(gl.grade_level_id)}><Plus size={13} /> Section</button>
+                      <button className="setup-action-btn edit" onClick={() => { setEditingGL(gl); setGlModalOpen(true); }}><Pencil size={13} /></button>
+                      <button className="setup-action-btn delete" onClick={() => handleDeleteGL(gl.grade_level_id)}><Trash2 size={13} /></button>
                     </div>
                   </div>
 
@@ -334,8 +695,8 @@ const SetupPage = () => {
                                 <td>{sec.name}</td>
                                 <td>
                                   <div className="setup-actions">
-                                    <button className="setup-action-btn edit" onClick={() => { setEditingSec(sec); setPrefillGrade(null); setSecModalOpen(true); }} title="Edit"><Pencil size={13} /></button>
-                                    <button className="setup-action-btn delete" onClick={() => handleDeleteSec(sec.section_id)} title="Delete"><Trash2 size={13} /></button>
+                                    <button className="setup-action-btn edit" onClick={() => { setEditingSec(sec); setPrefillGrade(null); setSecModalOpen(true); }}><Pencil size={13} /></button>
+                                    <button className="setup-action-btn delete" onClick={() => handleDeleteSec(sec.section_id)}><Trash2 size={13} /></button>
                                   </div>
                                 </td>
                               </tr>
@@ -352,38 +713,128 @@ const SetupPage = () => {
         )}
       </div>
 
-      {/* TEACHER ASSIGNMENTS */}
+      {/* SUBJECTS */}
+      <SubjectTable />
+
+      {/* CLASS SCHEDULES - MATRIX VIEW */}
       <div className="us-card">
-        <div className="us-card-header" onClick={() => setTaExpanded(v => !v)}>
+        <div className="us-card-header" onClick={() => setScheduleExpanded(v => !v)}>
           <div className="us-card-title">
-            <Users size={18} />
-            <span>Teacher Assignments</span>
-            {!taLoading && <span className="us-count-badge">{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</span>}
+            <Calendar size={18} />
+            <span>Class Schedules</span>
+            <span className="us-count-badge">Schedule Matrix</span>
           </div>
           <div className="us-card-actions" onClick={e => e.stopPropagation()}>
-            <button className="setup-add-btn us-add-btn" onClick={() => { setTaModalOpen(true); }}>
-              <Plus size={14} /> Add
-            </button>
             <button className="us-chevron-btn">
-              {taExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+              {scheduleExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
             </button>
           </div>
         </div>
 
-        {taExpanded && (
+        {scheduleExpanded && (
           <div className="us-card-body">
-            {taError && <ErrorBanner message={taError} onRetry={fetchTeacherAssignments} />}
-            <div className="setup-table-card us-table-card">
-              <TeacherAssignmentTable
-                assignments={assignments}
-                onDelete={handleDeleteTA}
-                isLoading={taLoading}
-              />
+            {/* Filters */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              marginBottom: '24px',
+              padding: '16px',
+              background: '#f9fafb',
+              borderRadius: '8px',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, marginBottom: '4px', color: '#6b7280' }}>Grade Level</label>
+                <select 
+                  value={selectedGradeId} 
+                  onChange={(e) => handleGradeChange(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb' }}
+                >
+                  <option value="">-- Select Grade Level --</option>
+                  {gradeLevels.map(gl => (
+                    <option key={gl.grade_level_id} value={gl.grade_level_id}>{gl.level} - {gl.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, marginBottom: '4px', color: '#6b7280' }}>Section</label>
+                <select 
+                  value={selectedSectionId} 
+                  onChange={(e) => setSelectedSectionId(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb' }}
+                  disabled={!selectedGradeId}
+                >
+                  <option value="">-- Select Section --</option>
+                  {availableSections.map(section => (
+                    <option key={section.section_id} value={section.section_id}>{section.section_code} - {section.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            {/* Schedule Matrix Table */}
+            {selectedSectionId && currentSchoolYearId && (
+              <>
+                {scheduleLoading ? (
+                  <p className="us-empty-hint">Loading schedules…</p>
+                ) : filteredSubjects.length === 0 ? (
+                  <p className="us-empty-hint">No subjects found for this grade level. Please add subjects first.</p>
+                ) : (
+                  <div style={{
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Header */}
+                    <div style={{
+                      background: '#f3f4f6',
+                      padding: '12px 16px',
+                      fontWeight: 600,
+                      borderBottom: '1px solid #e5e7eb'
+                    }}>
+                      Subjects
+                    </div>
+                    
+                    {/* Rows */}
+                    {filteredSubjects.map(subject => {
+                      const subjectScheds = subjectSchedules[subject.subject_id] || [];
+                      const sectionSchedules = subjectScheds.filter(s => s.section_id === parseInt(selectedSectionId));
+                      
+                      return (
+                        <ScheduleRow
+                          key={subject.subject_id}
+                          subject={subject}
+                          schedules={sectionSchedules}
+                          onSave={handleSaveSchedule}
+                          onDelete={handleDeleteSchedule}
+                          teachers={teachers}
+                          days={DAYS}
+                          saving={saving}
+                          schoolYearId={currentSchoolYearId}
+                          sectionId={parseInt(selectedSectionId)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+            
+            {!selectedGradeId && (
+              <p className="us-empty-hint">Select a grade level and section to configure schedules</p>
+            )}
+            {selectedGradeId && !selectedSectionId && (
+              <p className="us-empty-hint">Select a section to configure schedules</p>
+            )}
+            {!currentSchoolYearId && (
+              <p className="us-empty-hint">Please add a school year first</p>
+            )}
           </div>
         )}
       </div>
 
+      {/* MODALS */}
       <SchoolYearModal
         isOpen={syModalOpen}
         onClose={() => { setSyModalOpen(false); setEditingSY(null); }}
@@ -407,16 +858,6 @@ const SetupPage = () => {
         prefillGradeId={prefillGrade}
         saving={saving}
       />
-      <TeacherAssignmentModal
-        isOpen={taModalOpen}
-        onClose={() => setTaModalOpen(false)}
-        onSave={handleSaveTA}
-        teachers={teachers}
-        sections={sections}
-      />
-
-      {/* SUBJECTS */}
-      <SubjectTable />
     </div>
   );
 };

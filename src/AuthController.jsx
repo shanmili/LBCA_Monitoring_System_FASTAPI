@@ -5,7 +5,7 @@ import OTPScreen from './screens/OTPScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './screens/ResetPassword';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 const DEVICE_ID = (() => {
   let id = localStorage.getItem('device_id');
   if (!id) {

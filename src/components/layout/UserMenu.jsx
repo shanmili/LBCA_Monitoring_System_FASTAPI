@@ -3,7 +3,7 @@ import { ChevronDown, User, Sun, LogOut } from 'lucide-react';
 import Theme from '../common/Theme.jsx';
 import '../../styles/layout/UserMenu.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 
 function getToken() {
   return sessionStorage.getItem('access_token');

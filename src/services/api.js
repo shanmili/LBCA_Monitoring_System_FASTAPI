@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 
 function getToken() {
   return sessionStorage.getItem('access_token');
@@ -103,4 +103,12 @@ export const teacherAssignmentApi = {
   get: (id) => request(`/api/teacher-assignments/${id}`),
   create: (data) => request('/api/teacher-assignments', { method: 'POST', body: JSON.stringify(data) }),
   delete: (id) => request(`/api/teacher-assignments/${id}`, { method: 'DELETE' }),
+};
+
+// ── Class Schedules API ────────────────────────────────────────────────────────
+export const classScheduleApi = {
+  list: () => request('/api/class-schedules/'),
+  get: (id) => request(`/api/class-schedules/${id}`),
+  create: (data) => request('/api/class-schedules', { method: 'POST', body: JSON.stringify(data) }),
+  delete: (id) => request(`/api/class-schedules/${id}`, { method: 'DELETE' }),
 };

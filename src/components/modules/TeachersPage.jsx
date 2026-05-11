@@ -4,7 +4,7 @@ import TeacherTable from './teachers/TeacherTable';
 import TeacherFilter from './teachers/TeacherFilter';
 import '../../styles/teachers/TeachersPage.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 
 const TeachersPage = () => {
   const [users, setUsers] = useState([]);
@@ -43,10 +43,6 @@ const TeachersPage = () => {
 
   const generateTempPassword = (lastName) => {
     const year = new Date().getFullYear();
-    const today = new Date();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
-    const dateStr = `${month}${day}`;
     return `${lastName}${year}!`;
   };
 
@@ -80,39 +76,21 @@ const TeachersPage = () => {
     }
   };
 
-  const handleToggleStatus = async (user) => {
+  const handleApproveUser = async (user) => {
+    if (!window.confirm(`Approve ${user.first_name} ${user.last_name}?`)) return;
+    
     setActionLoading(user.id);
     try {
-      if (user.account_status === 'approved') {
-        const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error('Failed to deactivate');
-        showToast(`${user.email} deactivated successfully.`);
-      } else if (user.account_status === 'inactive') {
-        const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ account_status: 'active' }),
-        });
-        if (!res.ok) throw new Error('Failed to reactivate');
-        showToast(`${user.email} reactivated successfully.`);
-      } else if (user.account_status === 'rejected') {
-        const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ account_status: 'approved' }),
-        });
-        if (!res.ok) throw new Error('Failed to approve');
-        showToast(`${user.email} approved successfully.`);
-      }
+      const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ account_status: 'approved' }),
+      });
+      if (!res.ok) throw new Error('Failed to approve user');
+      showToast(`${user.email} approved successfully.`);
       fetchUsers();
     } catch (err) {
       showToast(`Error: ${err.message}`);
@@ -121,15 +99,77 @@ const TeachersPage = () => {
     }
   };
 
-  const updateFilter = (filterKey, value) => {
-    if (filterKey === 'status') {
-      setFilter(value);
+  const handleRejectUser = async (user) => {
+    if (!window.confirm(`Reject ${user.first_name} ${user.last_name}?`)) return;
+    
+    setActionLoading(user.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ account_status: 'rejected', rejection_reason: 'Rejected by administrator' }),
+      });
+      if (!res.ok) throw new Error('Failed to reject user');
+      showToast(`${user.email} rejected successfully.`);
+      fetchUsers();
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const filters = {
-    status: filter,
-    customized: 'all'
+  const handleReacceptUser = async (user) => {
+    if (!window.confirm(`Re-accept ${user.first_name} ${user.last_name}?`)) return;
+    
+    setActionLoading(user.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ account_status: 'approved' }),
+      });
+      if (!res.ok) throw new Error('Failed to re-accept user');
+      showToast(`${user.email} has been re-accepted successfully.`);
+      fetchUsers();
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeactivateUser = async (user) => {
+    if (!window.confirm(`Deactivate ${user.first_name} ${user.last_name}?`)) return;
+    
+    setActionLoading(user.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${user.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to deactivate');
+      showToast(`${user.email} deactivated successfully.`);
+      fetchUsers();
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getDisplayStatus = (status) => {
+    if (status === 'approved') return 'Active';
+    if (status === 'inactive') return 'Inactive';
+    if (status === 'rejected') return 'Rejected';
+    if (status === 'pending') return 'Pending';
+    return status;
   };
 
   const getStatusBadgeClass = (status) => {
@@ -142,12 +182,28 @@ const TeachersPage = () => {
     return classes[status] || 'status-badge';
   };
 
+  const formatRole = (role) => {
+    if (!role) return 'Teacher';
+    return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+  };
+
   const stats = {
     total: users.length,
     approved: users.filter(u => u.account_status === 'approved').length,
     pending: users.filter(u => u.account_status === 'pending').length,
     rejected: users.filter(u => u.account_status === 'rejected').length,
     inactive: users.filter(u => u.account_status === 'inactive').length,
+  };
+
+  const updateFilter = (filterKey, value) => {
+    if (filterKey === 'status') {
+      setFilter(value);
+    }
+  };
+
+  const filters = {
+    status: filter,
+    customized: 'all'
   };
 
   if (loading) {
@@ -208,9 +264,14 @@ const TeachersPage = () => {
 
       <TeacherTable 
         teachers={users}
-        onToggleStatus={handleToggleStatus}
+        onApproveUser={handleApproveUser}
+        onRejectUser={handleRejectUser}
+        onReacceptUser={handleReacceptUser}
+        onDeactivateUser={handleDeactivateUser}
         onResetPassword={handleResetPassword}
         getStatusBadgeClass={getStatusBadgeClass}
+        getDisplayStatus={getDisplayStatus}
+        formatRole={formatRole}
         actionLoading={actionLoading}
       />
 

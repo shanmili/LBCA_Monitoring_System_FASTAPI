@@ -241,3 +241,14 @@
     justify-content: flex-end;
   }
 }
+
+/* Additional styles for schedules */
+.setup-badge-active {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.setup-badge-inactive {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
