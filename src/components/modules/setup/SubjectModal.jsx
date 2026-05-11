@@ -102,7 +102,7 @@ const SubjectModal = ({ isOpen, onClose, onSave, editingItem, gradeLevels = [] }
               </select>
               {errors.grade_level_id && <span className="setup-error-text">{errors.grade_level_id}</span>}
               <span className="setup-field-hint">
-                Choose which grade level this subject is assigned to. This links the subject to the selected grade level via the foreign key relationship.
+                Choose which grade level this subject is assigned to.
               </span>
             </div>
 
@@ -135,7 +135,7 @@ const SubjectModal = ({ isOpen, onClose, onSave, editingItem, gradeLevels = [] }
               <span className="setup-field-hint">Must be unique. Max 50 characters.</span>
             </div>
 
-            <div className="setup-form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+            <div className="setup-form-checkbox" style={{ marginTop: '16px' }}>
               <input
                 type="checkbox"
                 id="is_active"
@@ -144,24 +144,15 @@ const SubjectModal = ({ isOpen, onClose, onSave, editingItem, gradeLevels = [] }
                 onChange={handleChange}
                 disabled={saving}
               />
-              <label htmlFor="is_active" style={{ margin: 0 }}>Mark as active</label>
+              <label htmlFor="is_active">Mark as active</label>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              className="setup-btn-secondary"
-              onClick={onClose}
-              disabled={saving}
-            >
+          <div className="setup-modal-actions">
+            <button type="button" className="cancel-btn" onClick={onClose} disabled={saving}>
               Cancel
             </button>
-            <button
-              type="submit"
-              className="setup-btn-primary"
-              disabled={saving}
-            >
+            <button type="submit" className="submit-btn" disabled={saving}>
               {saving ? 'Saving...' : editingItem ? 'Update Subject' : 'Add Subject'}
             </button>
           </div>

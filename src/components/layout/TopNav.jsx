@@ -152,6 +152,3 @@ const TopNav = ({ onLogout, activeTab, onNavigate, adminPhoto, userRole = 'admin
 };
 
 export default TopNav;
-
-//Top Navigationn
-
