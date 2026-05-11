@@ -506,8 +506,19 @@ const SetupPage = () => {
     setSaving(true);
     try {
       if (data.schedule_id) {
-        alert('Update functionality coming soon');
+        // Update existing schedule
+        await classScheduleApi.update(data.schedule_id, {
+          school_year_id: data.school_year_id,
+          section_id: data.section_id,
+          subject_id: data.subject_id,
+          teacher_id: data.teacher_id,
+          day_of_week: data.day_of_week,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          room: data.room,
+        });
       } else {
+        // Create new schedule
         await classScheduleApi.create({
           school_year_id: data.school_year_id,
           section_id: data.section_id,
