@@ -110,5 +110,6 @@ export const classScheduleApi = {
   list: () => request('/api/class-schedules/'),
   get: (id) => request(`/api/class-schedules/${id}`),
   create: (data) => request('/api/class-schedules', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/api/class-schedules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id) => request(`/api/class-schedules/${id}`, { method: 'DELETE' }),
 };
