@@ -1,258 +1,462 @@
-import { useState, useEffect } from 'react';
-import { paceSubjects, paceEncodingData, studentsData, studentGrades, studentSections } from '../data/mockData';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  schoolYearApi,
+  gradeLevelApi,
+  sectionApi,
+  subjectApi,
+  enrollmentApi,
+  paceApi,
+} from '../api/api';
 
-const SCHOOL_YEARS = ['2025-2026', '2024-2025', '2023-2024'];
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Convert a list of backend pace records for one student+subject into the
+ * UI paceRecords array format:
+ *   [{ paceNo, testScore, paceId, enrollmentId }]
+ *
+ * The backend stores one StudentPace row per (enrollment, subject).
+ * We keep the list sorted by pace_id so PACE #1 is index 0, #2 is index 1, etc.
+ */
+function toPaceRecords(backendRows) {
+  // Sort by pace_id ascending so older records = smaller PACE numbers
+  const sorted = [...backendRows].sort((a, b) => a.pace_id - b.pace_id);
+  return sorted.map((row, idx) => ({
+    paceNo: idx + 1,
+    testScore: row.pace_percent ?? null,   // using pace_percent as the score field
+    totalScore: 100,                        // default total; editable in the UI
+    paceId: row.pace_id,
+    enrollmentId: row.enrollment_id,
+    pacesBehind: row.paces_behind,
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hook
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function usePaceEncodingState() {
+  // ── Reference data loaded from backend ───────────────────────────────────
+  const [schoolYears, setSchoolYears]   = useState([]);
+  const [gradeLevels, setGradeLevels]   = useState([]);
+  const [sections, setSections]         = useState([]);
+  const [subjects, setSubjects]         = useState([]);
 
+  // ── Selected filters (IDs for API calls, display values for UI) ──────────
   const [filters, setFilters] = useState({
-    schoolYear: '2025-2026',
-    gradeLevel: studentGrades[0] || 'Grade 7',
-    section: studentSections[0] || 'Section A',
-    subject: paceSubjects[0] || 'Math'
+    schoolYearId: null,
+    schoolYear: '',      // display label e.g. "2025-2026"
+    gradeLevelId: null,
+    gradeLevel: '',      // display label e.g. "Grade 10"
+    sectionId: null,
+    section: '',         // display label e.g. "Section A"
+    subjectId: null,
+    subject: '',         // display label e.g. "Math"
   });
 
-  // Store all PACE data
-  const [paceDataStore, setPaceDataStore] = useState(() => {
-    return paceEncodingData;
-  });
-
+  // ── Table data ────────────────────────────────────────────────────────────
   const [encodingData, setEncodingData] = useState([]);
 
-  // Load data when filters change
+  // ── Loading / error states ────────────────────────────────────────────────
+  const [loading, setLoading]       = useState(false);
+  const [loadingRef, setLoadingRef] = useState(false); // reference data
+  const [error, setError]           = useState(null);
+
+  // Debounce timer ref for score saves
+  const saveTimers = useRef({});
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 1. Boot: load school years and grade levels
+  // ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
+    async function loadReferenceData() {
+      setLoadingRef(true);
+      setError(null);
+      try {
+        const [syList, glList] = await Promise.all([
+          schoolYearApi.list(),
+          gradeLevelApi.list(),
+        ]);
 
-    // Filter students based on selected grade and section
-    const filteredStudents = studentsData.filter(student => 
-      student.gradeLevel === filters.gradeLevel && student.section === filters.section
-    );
+        setSchoolYears(syList);
+        setGradeLevels(glList);
 
-    // Get existing PACE data for this section/subject
-    let sectionData = paceDataStore[filters.section]?.[filters.subject] || [];
+        // Default to current school year
+        let defaultSy = syList.find((sy) => sy.is_current) || syList[0] || null;
+        let defaultGl = glList[0] || null;
 
-    // AUTO-CREATE TABLE: If no records exist but there are students, create the table with PACE #1
-    if (sectionData.length === 0 && filteredStudents.length > 0) {
-
-      // Create initial record with PACE #1 for all students
-      sectionData = filteredStudents.map(student => ({
-        studentId: student.id,
-        name: `${student.lastName}, ${student.firstName}`,
-        paceRecords: [{ paceNo: 1, testScore: null }]
-      }));
-
-      // Update the store
-      setPaceDataStore(prev => {
-        const newStore = { ...prev };
-        if (!newStore[filters.section]) {
-          newStore[filters.section] = {};
+        // Load sections for default grade level
+        let secList = [];
+        if (defaultGl) {
+          secList = await sectionApi.list(defaultGl.grade_level_id);
+          setSections(secList);
         }
-        newStore[filters.section][filters.subject] = sectionData;
-        return newStore;
-      });
+
+        // Load subjects for default grade level
+        let subjList = [];
+        if (defaultGl) {
+          subjList = await subjectApi.list(defaultGl.grade_level_id);
+          setSubjects(subjList);
+        }
+
+        const defaultSec  = secList[0]  || null;
+        const defaultSubj = subjList[0] || null;
+
+        setFilters({
+          schoolYearId: defaultSy?.school_year_id ?? null,
+          schoolYear:   defaultSy?.year            ?? '',
+          gradeLevelId: defaultGl?.grade_level_id  ?? null,
+          gradeLevel:   defaultGl?.level            ?? '',
+          sectionId:    defaultSec?.section_id      ?? null,
+          section:      defaultSec?.name            ?? '',
+          subjectId:    defaultSubj?.subject_id     ?? null,
+          subject:      defaultSubj?.subject_name   ?? '',
+        });
+      } catch (err) {
+        setError('Failed to load reference data: ' + err.message);
+      } finally {
+        setLoadingRef(false);
+      }
     }
 
-    const combinedData = filteredStudents.map(student => {
-      const existingRecord = sectionData.find(r => r.studentId === student.id);
-      return {
-        studentId: student.id,
-        name: `${student.lastName}, ${student.firstName}`,
-        paceRecords: existingRecord?.paceRecords || [] // Will be empty array if no records
-      };
-    });
+    loadReferenceData();
+  }, []);
 
-    setEncodingData(combinedData);
-  }, [filters.section, filters.subject, filters.gradeLevel, paceDataStore]);
+  // ─────────────────────────────────────────────────────────────────────
+  // 2. When grade level changes → reload sections and subjects
+  // ─────────────────────────────────────────────────────────────────────
+  const handleGradeLevelChange = useCallback(async (gradeLevelId) => {
+    const gl = gradeLevels.find((g) => g.grade_level_id === gradeLevelId);
+    if (!gl) return;
 
-  const updateFilter = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
+    try {
+      const [secList, subjList] = await Promise.all([
+        sectionApi.list(gradeLevelId),
+        subjectApi.list(gradeLevelId),
+      ]);
+      setSections(secList);
+      setSubjects(subjList);
 
-  const handleDataChange = (updatedData) => {
-    setEncodingData(updatedData);
+      const defaultSec  = secList[0]  || null;
+      const defaultSubj = subjList[0] || null;
 
-    // Update paceDataStore
-    setPaceDataStore(prev => {
-      const newStore = { ...prev };
-      if (!newStore[filters.section]) {
-        newStore[filters.section] = {};
-      }
-      newStore[filters.section][filters.subject] = updatedData.map(student => ({
-        studentId: student.studentId,
-        name: student.name,
-        paceRecords: student.paceRecords
+      setFilters((prev) => ({
+        ...prev,
+        gradeLevelId,
+        gradeLevel:  gl.level,
+        sectionId:   defaultSec?.section_id    ?? null,
+        section:     defaultSec?.name          ?? '',
+        subjectId:   defaultSubj?.subject_id   ?? null,
+        subject:     defaultSubj?.subject_name ?? '',
       }));
-      return newStore;
-    });
-  };
+    } catch (err) {
+      setError('Failed to load sections/subjects: ' + err.message);
+    }
+  }, [gradeLevels]);
 
-  const handleAddPaceRecord = (newRecords) => {
-
-    // Create a deep copy of the current store
-    const updatedStore = JSON.parse(JSON.stringify(paceDataStore));
-
-    // Track if any records were actually added
-    let recordsAdded = false;
-
-    // Process each new record
-    newRecords.forEach((record, index) => {
-      const { subject, gradeLevel, section } = record;
-
-      // Get students for this grade and section
-      const classStudents = studentsData.filter(s => 
-        s.gradeLevel === gradeLevel && s.section === section
-      );
-
-      // If no students found, show warning but continue to next record
-      if (classStudents.length === 0) {
-        alert(`No students found for ${gradeLevel} ${section}. Please add students first.`);
-        return;
-      }
-
-      // Initialize section if it doesn't exist
-      if (!updatedStore[section]) {
-        updatedStore[section] = {};
-      }
-
-      // Initialize subject if it doesn't exist
-      if (!updatedStore[section][subject]) {
-        updatedStore[section][subject] = [];
-      }
-
-      // For each student in the class
-      classStudents.forEach(student => {
-
-        const existingIndex = updatedStore[section][subject].findIndex(
-          r => r.studentId === student.id
-        );
-
-        const newPaceRecord = {
-          paceNo: 1,
-          testScore: null
-        };
-
-        if (existingIndex >= 0) {
-          // Student exists - check if they already have PACE #1
-          const hasPace1 = updatedStore[section][subject][existingIndex].paceRecords.some(
-            r => r.paceNo === 1
-          );
-
-          if (!hasPace1) {
-            updatedStore[section][subject][existingIndex].paceRecords.push(newPaceRecord);
-            recordsAdded = true;
-          } 
-        } else {
-          // New student
-          updatedStore[section][subject].push({
-            studentId: student.id,
-            name: `${student.lastName}, ${student.firstName}`,
-            paceRecords: [newPaceRecord]
-          });
-          recordsAdded = true;
-        }
-      });
-    });
-
-    if (!recordsAdded) {
+  // ─────────────────────────────────────────────────────────────────────
+  // 3. Generic filter updater (called by PaceFilter)
+  // ─────────────────────────────────────────────────────────────────────
+  const updateFilter = useCallback((key, value) => {
+    if (key === 'schoolYear') {
+      const sy = schoolYears.find((s) => s.year === value);
+      setFilters((prev) => ({
+        ...prev,
+        schoolYear:   sy?.year             ?? value,
+        schoolYearId: sy?.school_year_id   ?? null,
+      }));
       return;
     }
 
-    // Update the state
-    setPaceDataStore(updatedStore);
-
-    // Check if current filters match any of the new records
-    const shouldRefresh = newRecords.some(record => 
-      record.subject === filters.subject &&
-      record.gradeLevel === filters.gradeLevel &&
-      record.section === filters.section
-    );
-
-    if (shouldRefresh) {
-      // Force a refresh by triggering a filter update
-      setFilters(prev => ({ ...prev }));
+    if (key === 'gradeLevel') {
+      // value is either the display string or an ID — normalise
+      const gl = gradeLevels.find(
+        (g) => g.level === value || g.grade_level_id === value
+      );
+      if (gl) {
+        handleGradeLevelChange(gl.grade_level_id);
+      }
+      return;
     }
-  };
 
-  const handleAddPaceForCurrent = () => {
-    // Check if there are students in current view
+    if (key === 'section') {
+      const sec = sections.find((s) => s.name === value || s.section_id === value);
+      setFilters((prev) => ({
+        ...prev,
+        section:   sec?.name       ?? value,
+        sectionId: sec?.section_id ?? null,
+      }));
+      return;
+    }
+
+    if (key === 'subject') {
+      const subj = subjects.find(
+        (s) => s.subject_name === value || s.subject_id === value
+      );
+      setFilters((prev) => ({
+        ...prev,
+        subject:   subj?.subject_name ?? value,
+        subjectId: subj?.subject_id   ?? null,
+      }));
+      return;
+    }
+
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  }, [schoolYears, gradeLevels, sections, subjects, handleGradeLevelChange]);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 4. Load students + PACE data when filters are fully set
+  // ─────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const { sectionId, schoolYearId, gradeLevelId, subject } = filters;
+    if (!sectionId || !schoolYearId || !gradeLevelId || !subject) return;
+
+    async function loadTableData() {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch enrollments for this section + school year + grade level
+        const enrollments = await enrollmentApi.list({
+          section_id:      sectionId,
+          school_year_id:  schoolYearId,
+          grade_level_id:  gradeLevelId,
+        });
+
+        if (enrollments.length === 0) {
+          setEncodingData([]);
+          return;
+        }
+
+        // Fetch all pace records for these enrollments (by enrollment_id)
+        // We do it in parallel per enrollment to keep things fast
+        const paceResults = await Promise.all(
+          enrollments.map((enr) =>
+            paceApi.list({ enrollment_id: enr.enrollment_id }).catch(() => [])
+          )
+        );
+
+        // Build the table rows
+        const rows = enrollments.map((enr, idx) => {
+          const allPaces = paceResults[idx] || [];
+          // Filter to the selected subject only
+          const subjectPaces = allPaces.filter(
+            (p) => p.subject === subject
+          );
+
+          return {
+            studentId:    enr.student_id,
+            enrollmentId: enr.enrollment_id,
+            name:         `${enr.student?.last_name ?? ''}, ${enr.student?.first_name ?? ''}`.trim(),
+            paceRecords:  toPaceRecords(subjectPaces),
+          };
+        });
+
+        // Find the max pace count any student has — this is the "expected" column count
+        const maxPaces = Math.max(...rows.map((r) => r.paceRecords.length), 0);
+
+        // Backfill missing records for students who are behind
+        if (maxPaces > 0) {
+          const backfillResults = await Promise.all(
+            rows.map(async (row) => {
+              const missing = maxPaces - row.paceRecords.length;
+              if (missing <= 0) return { studentId: row.studentId, newPaces: [] };
+
+              const newPaces = [];
+              for (let i = 0; i < missing; i++) {
+                try {
+                  const response = await paceApi.create({
+                    student_id:    row.studentId,
+                    enrollment_id: row.enrollmentId,
+                    subject:       subject,
+                    pace_percent:  0,
+                    paces_behind:  0,
+                  });
+                  newPaces.push(response?.pace ?? response);
+                } catch (err) {
+                  console.error(`Backfill failed for student ${row.studentId}:`, err.message);
+                }
+              }
+              return { studentId: row.studentId, newPaces };
+            })
+          );
+
+          // Merge backfilled records into rows
+          const backfillMap = {};
+          backfillResults.forEach(({ studentId, newPaces }) => {
+            backfillMap[studentId] = newPaces;
+          });
+
+          rows.forEach((row) => {
+            const newPaces = backfillMap[row.studentId] ?? [];
+            if (newPaces.length === 0) return;
+            const addedRecords = newPaces.map((p, i) => ({
+              paceNo:       row.paceRecords.length + i + 1,
+              testScore:    0,
+              totalScore:   100,
+              paceId:       p.pace_id,
+              enrollmentId: p.enrollment_id,
+              pacesBehind:  0,
+            }));
+            row.paceRecords = [...row.paceRecords, ...addedRecords];
+          });
+        }
+
+        setEncodingData(rows);
+      } catch (err) {
+        setError('Failed to load class data: ' + err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTableData();
+  }, [filters.sectionId, filters.schoolYearId, filters.gradeLevelId, filters.subject]);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 5. Handle score change — debounced auto-save to backend
+  // ─────────────────────────────────────────────────────────────────────
+  const handleDataChange = useCallback((updatedData) => {
+    setEncodingData(updatedData);
+
+    // Persist each changed record after a short debounce
+    updatedData.forEach((student) => {
+      student.paceRecords.forEach((record) => {
+        if (record.paceId == null) return; // not yet saved → created by handleAddPaceForCurrent
+
+        const key = `${student.studentId}-${record.paceId}`;
+        if (saveTimers.current[key]) clearTimeout(saveTimers.current[key]);
+
+        saveTimers.current[key] = setTimeout(async () => {
+          try {
+            await paceApi.update(record.paceId, {
+              pace_percent: record.testScore ?? 0,
+              paces_behind: record.pacesBehind ?? 0,
+            });
+          } catch (err) {
+            console.error('Auto-save failed for pace', record.paceId, err.message);
+          }
+        }, 800);
+      });
+    });
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 6. Add a new PACE column for the current class & subject
+  // ─────────────────────────────────────────────────────────────────────
+  const handleAddPaceForCurrent = useCallback(async () => {
     if (!encodingData || encodingData.length === 0) {
       alert('No students found in this class. Cannot add PACE record.');
       return;
     }
 
-    // Create a deep copy
-    const updatedStore = JSON.parse(JSON.stringify(paceDataStore));
+    const { subject } = filters;
 
-    // Initialize section/subject if needed
-    if (!updatedStore[filters.section]) {
-      updatedStore[filters.section] = {};
-    }
-    if (!updatedStore[filters.section][filters.subject]) {
-      updatedStore[filters.section][filters.subject] = [];
-    }
+    // The new column index = current max pace count across all students
+    const currentMaxPaces = Math.max(
+      ...encodingData.map((s) => s.paceRecords?.length ?? 0),
+      0
+    );
+    const newPaceNo = currentMaxPaces + 1;
 
-    let recordsAdded = false;
+    setLoading(true);
 
-    // For each student in current view
-    encodingData.forEach(student => {
-      // Ensure paceRecords exists (fix for the error)
-      const currentPaceRecords = student.paceRecords || [];
-      const nextPaceNo = currentPaceRecords.length + 1;
+    try {
+      // For each student, create as many records as needed to reach newPaceNo
+      // (students who are behind get caught up with gap records too)
+      const results = await Promise.all(
+        encodingData.map(async (student) => {
+          const studentPaceCount = student.paceRecords?.length ?? 0;
+          if (studentPaceCount >= newPaceNo) {
+            // Already has a record at this index — skip
+            return { studentId: student.studentId, newPaces: [] };
+          }
 
-      const newPaceRecord = {
-        paceNo: nextPaceNo,
-        testScore: null
-      };
+          const missingCount = newPaceNo - studentPaceCount;
+          const newPaces = [];
 
-      // Find if student already exists in store
-      const existingIndex = updatedStore[filters.section][filters.subject].findIndex(
-        r => r.studentId === student.studentId
+          for (let i = 0; i < missingCount; i++) {
+            try {
+              const response = await paceApi.create({
+                student_id:    student.studentId,
+                enrollment_id: student.enrollmentId,
+                subject:       subject,
+                pace_percent:  0,
+                paces_behind:  0,
+              });
+              newPaces.push(response?.pace ?? response);
+            } catch (err) {
+              console.error(`Failed to create pace for student ${student.studentId}:`, err.message);
+            }
+          }
+
+          return { studentId: student.studentId, newPaces };
+        })
       );
 
-      if (existingIndex >= 0) {
-        // Student exists in store
-        const existingStudent = updatedStore[filters.section][filters.subject][existingIndex];
+      // Map results by studentId for quick lookup
+      const resultMap = {};
+      results.forEach(({ studentId, newPaces }) => {
+        resultMap[studentId] = newPaces;
+      });
 
-        // Ensure paceRecords exists for existing student
-        if (!existingStudent.paceRecords) {
-          existingStudent.paceRecords = [];
-        }
+      // Update local state
+      setEncodingData((prev) =>
+        prev.map((student) => {
+          const newPaces = resultMap[student.studentId];
+          if (!newPaces || newPaces.length === 0) return student;
 
-        // Check if this PACE number already exists
-        const hasPaceNo = existingStudent.paceRecords.some(r => r.paceNo === nextPaceNo);
+          const existingRecords = student.paceRecords ?? [];
+          const addedRecords = newPaces.map((newPace, i) => ({
+            paceNo:       existingRecords.length + i + 1,
+            testScore:    0,
+            totalScore:   100,
+            paceId:       newPace.pace_id,
+            enrollmentId: newPace.enrollment_id,
+            pacesBehind:  0,
+          }));
 
-        if (!hasPaceNo) {
-          existingStudent.paceRecords.push(newPaceRecord);
-          recordsAdded = true;
-        }
-      } else {
-        // New student in store
-        updatedStore[filters.section][filters.subject].push({
-          studentId: student.studentId,
-          name: student.name,
-          paceRecords: [newPaceRecord]
-        });
-        recordsAdded = true;
-      }
-    });
-
-    if (!recordsAdded) {
-      alert('All students already have this PACE number or no changes were made.');
-      return;
+          return {
+            ...student,
+            paceRecords: [...existingRecords, ...addedRecords],
+          };
+        })
+      );
+    } catch (err) {
+      setError('Failed to add PACE record: ' + err.message);
+    } finally {
+      setLoading(false);
     }
-    
-    setPaceDataStore(updatedStore);
+  }, [encodingData, filters]);
 
-    // Refresh current view
-    setFilters(prev => ({ ...prev }));
-  };
+  // ─────────────────────────────────────────────────────────────────────
+  // Derived option lists for the filter dropdowns
+  // ─────────────────────────────────────────────────────────────────────
+  const schoolYearOptions = schoolYears.map((sy) => sy.year);
+  const gradeLevelOptions = gradeLevels.map((gl) => gl.level);
+  const sectionOptions    = sections.map((s) => s.name);
+  const subjectOptions    = subjects.map((s) => s.subject_name);
 
   return {
-    SCHOOL_YEARS,
+    // filter state (display values for dropdowns)
     filters,
     updateFilter,
+
+    // option lists for dropdowns
+    schoolYearOptions,
+    gradeLevelOptions,
+    sectionOptions,
+    subjectOptions,
+
+    // table data
     encodingData,
     handleDataChange,
-    handleAddPaceRecord,
     handleAddPaceForCurrent,
+
+    // loading / error
+    loading,
+    loadingRef,
+    error,
   };
 }

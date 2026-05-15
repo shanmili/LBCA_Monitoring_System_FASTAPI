@@ -96,11 +96,10 @@ export const staffApi = {
 // ── Student Enrollments ───────────────────────────────────────────────────────
 export const enrollmentApi = {
   list: (params = {}) => {
-    const qs = new URLSearchParams();
-    if (params.student_id) qs.set('student_id', params.student_id);
-    if (params.school_year_id) qs.set('school_year_id', params.school_year_id);
-    const query = qs.toString();
-    return request(query ? `/api/enrollments/?${query}` : '/api/enrollments/');
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
+    ).toString();
+    return request(qs ? `/api/enrollments/?${qs}` : '/api/enrollments/');
   },
   get: (id) => request(`/api/enrollments/${id}`),
   createWithStudent: (data) =>
@@ -155,7 +154,16 @@ export const paceApi = {
 };
 
 // ── AI helpers ────────────────────────────────────────────────────────────────
-export function toAiStudentInput(student, paces = [], warnings = []) {
+
+/**
+ * Build the StudentDataInput payload that the Django AI model expects.
+ *
+ * Since we only track PACE (no attendance), we:
+ *  - map pace_percent → pace_history (as chronological completion %)
+ *  - map subject scores via test_scores
+ *  - leave attendance_history empty (AI handles missing values gracefully)
+ */
+export function toAiStudentInput(student, paces = []) {
   // Sort paces by creation date so history is chronological
   const sorted = [...paces].sort(
     (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
@@ -166,11 +174,12 @@ export function toAiStudentInput(student, paces = [], warnings = []) {
     p.pace_percent != null ? parseFloat(p.pace_percent) : 0
   );
 
-  // test_scores keyed by subject name — use pace_percent as score proxy
+  // test_scores keyed by subject name
   const testScores = {};
   sorted.forEach((p) => {
     const subj = p.subject || 'General';
     if (!testScores[subj]) testScores[subj] = [];
+    // Use pace_percent as the score proxy since that's what's recorded
     testScores[subj].push(
       p.pace_percent != null ? parseFloat(p.pace_percent) : 0
     );
@@ -188,7 +197,7 @@ export function toAiStudentInput(student, paces = [], warnings = []) {
       ontime: sorted.filter((p) => (p.pace_percent ?? 0) >= 70).length,
       late: sorted.filter((p) => (p.pace_percent ?? 0) < 70).length,
     },
-    teacher_notes: warnings.map((w) => w.notes || '').join(' '),
+    teacher_notes: '',
   };
 }
 

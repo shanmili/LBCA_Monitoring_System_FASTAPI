@@ -1,27 +1,32 @@
+// ============================================================
+// OverviewSection.jsx — dynamic filter options version
+// The filters prop now accepts _sectionOptions and
+// _schoolYearOptions arrays from the live hook so the dropdowns
+// are populated from real backend data instead of hard-coded lists.
+// ============================================================
+
 import FilterBar from '../../../components/common/FilterBar';
 import '../../../styles/dashboard/OverviewSection.css';
 
 const OverviewSection = ({ title, subtitle, filters, onFilterChange }) => {
-  // Convert filters object to array format that FilterBar expects
-  const filterOptions = [
+  const sectionOptions = filters._sectionOptions || ['Section A', 'Section B', 'Section C'];
+  const schoolYearOptions = filters._schoolYearOptions || ['2025-2026', '2024-2025'];
+
+  const filterConfig = [
     {
       key: 'schoolYear',
       value: filters.schoolYear,
       options: [
-        { value: '2025-2026', label: 'SY 2025-2026' },
-        { value: '2024-2025', label: 'SY 2024-2025' },
-        { value: '2023-2024', label: 'SY 2023-2024' },
-      ]
+        ...schoolYearOptions.map((y) => ({ value: y, label: `SY ${y}` })),
+      ],
     },
     {
       key: 'section',
       value: filters.section,
       options: [
         { value: 'All', label: 'All Sections' },
-        { value: 'Section A', label: 'Section A' },
-        { value: 'Section B', label: 'Section B' },
-        { value: 'Section C', label: 'Section C' },
-      ]
+        ...sectionOptions.map((s) => ({ value: s, label: s })),
+      ],
     },
     {
       key: 'quarter',
@@ -31,18 +36,18 @@ const OverviewSection = ({ title, subtitle, filters, onFilterChange }) => {
         { value: 'Q2', label: 'Q2' },
         { value: 'Q3', label: 'Q3' },
         { value: 'Q4', label: 'Q4' },
-      ]
+      ],
     },
     {
       key: 'risk',
       value: filters.risk,
       options: [
-        { value: 'All', label: 'All Risk' },
-        { value: 'High', label: 'High' },
+        { value: 'All',    label: 'All Risk' },
+        { value: 'High',   label: 'High' },
         { value: 'Medium', label: 'Medium' },
-        { value: 'Low', label: 'Low' },
-      ]
-    }
+        { value: 'Low',    label: 'Low' },
+      ],
+    },
   ];
 
   return (
@@ -51,10 +56,7 @@ const OverviewSection = ({ title, subtitle, filters, onFilterChange }) => {
         <h2 className="section-title">{title}</h2>
         <p className="section-subtitle">{subtitle}</p>
       </div>
-      <FilterBar 
-        filters={filterOptions} 
-        onFilterChange={onFilterChange} 
-      />
+      <FilterBar filters={filterConfig} onFilterChange={onFilterChange} />
     </div>
   );
 };

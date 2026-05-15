@@ -1,17 +1,15 @@
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, User, BookOpen, Calendar, AlertTriangle, Printer, Pencil } from 'lucide-react';
+import { ArrowLeft, User, BookOpen, AlertTriangle, Printer, Pencil } from 'lucide-react';
 import useStudentProfileState from '../../../hooks/useStudentProfileState';
 import StudentFormModal from './StudentFormModal';
 import ProfileOverviewTab from './profile/ProfileOverviewTab';
 import ProfilePaceTab from './profile/ProfilePaceTab';
-import ProfileAttendanceTab from './profile/ProfileAttendanceTab';
 import ProfileRiskTab from './profile/ProfileRiskTab';
 import '../../../styles/students/StudentProfile.css';
 
 const TAB_ICONS = {
   overview: User,
   pace: BookOpen,
-  attendance: Calendar,
   risk: AlertTriangle,
 };
 
@@ -23,7 +21,10 @@ const StudentProfile = ({ onNavigate }) => {
     activeTab, setActiveTab,
     showEditModal, setShowEditModal,
     student,
+    paceRecords,
+    aiData,
     loading,
+    aiLoading,
     error,
     gradeLevels,
     sections,
@@ -40,9 +41,8 @@ const StudentProfile = ({ onNavigate }) => {
   const renderTab = () => {
     switch (activeTab) {
       case 'overview':   return <ProfileOverviewTab student={student} />;
-      case 'pace':       return <ProfilePaceTab student={student} />;
-      case 'attendance': return <ProfileAttendanceTab student={student} />;
-      case 'risk':       return <ProfileRiskTab student={student} />;
+      case 'pace':       return <ProfilePaceTab student={student} paceRecords={paceRecords} />;
+      case 'risk':       return <ProfileRiskTab student={student} paceRecords={paceRecords} aiData={aiData} aiLoading={aiLoading} />;
       default:           return null;
     }
   };

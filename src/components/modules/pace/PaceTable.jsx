@@ -2,44 +2,66 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Plus } from 'lucide-react';
 import '../../../styles/pace/PaceTable.css';
 
-const PaceTable = ({ 
-  data, 
-  onDataChange, 
+const PaceTable = ({
+  data,
+  onDataChange,
   onAddPaceForCurrent,
   subject,
   section,
-  gradeLevel 
+  gradeLevel,
+  loading = false,
 }) => {
   const [localData, setLocalData] = useState(data);
   const [paceTotals, setPaceTotals] = useState({});
 
   useEffect(() => {
     setLocalData(data);
-    
-    // Initialize pace totals from existing data
-    if (data && data.length > 0 && data[0]?.paceRecords) {
-      const totals = {};
-      data[0].paceRecords.forEach((record, index) => {
-        if (record.totalScore) {
-          totals[index] = record.totalScore;
-        }
-      });
-      setPaceTotals(totals);
+
+    // Derive totals from the student with the most records
+    if (data && data.length > 0) {
+      const richest = data.reduce(
+        (best, row) =>
+          (row.paceRecords?.length ?? 0) > (best.paceRecords?.length ?? 0) ? row : best,
+        data[0]
+      );
+      if (richest?.paceRecords?.length > 0) {
+        const totals = {};
+        richest.paceRecords.forEach((record, index) => {
+          if (record.totalScore != null) totals[index] = record.totalScore;
+        });
+        setPaceTotals(totals);
+      }
     }
   }, [data]);
 
-  const handleScoreChange = (studentId, paceIndex, value) => {
-    const score = value === '' ? null : parseInt(value, 10);
-    const maxScore = paceTotals[paceIndex];
-    if (!isNaN(score) && maxScore && (score < 0 || score > maxScore)) return;
+  // Number of PACE columns = max paceRecords length across ALL students
+  const maxPaceCount = localData
+    ? Math.max(...localData.map((row) => row.paceRecords?.length ?? 0), 0)
+    : 0;
 
-    const updatedData = localData.map(row => {
+  // Synthetic column descriptors based on the student with the most records
+  const columnRecords = (() => {
+    if (!localData || maxPaceCount === 0) return [];
+    const richest = localData.reduce(
+      (best, row) =>
+        (row.paceRecords?.length ?? 0) > (best.paceRecords?.length ?? 0) ? row : best,
+      localData[0]
+    );
+    return richest.paceRecords ?? [];
+  })();
+
+  const handleScoreChange = (studentId, paceIndex, value) => {
+    const score = value === '' ? null : parseFloat(value);
+    const maxScore = paceTotals[paceIndex];
+    if (score !== null && !isNaN(score) && maxScore && (score < 0 || score > maxScore)) return;
+
+    const updatedData = localData.map((row) => {
       if (row.studentId === studentId) {
-        const updatedPaceRecords = [...row.paceRecords];
+        const updatedPaceRecords = [...(row.paceRecords ?? [])];
         if (updatedPaceRecords[paceIndex]) {
           updatedPaceRecords[paceIndex] = {
             ...updatedPaceRecords[paceIndex],
-            testScore: score
+            testScore: score,
           };
         }
         return { ...row, paceRecords: updatedPaceRecords };
@@ -52,52 +74,42 @@ const PaceTable = ({
   };
 
   const handleTotalScoreChange = (paceIndex, value) => {
-    // Allow empty string while typing
     if (value === '') {
-      setPaceTotals(prev => ({ ...prev, [paceIndex]: '' }));
+      setPaceTotals((prev) => ({ ...prev, [paceIndex]: '' }));
       return;
     }
-
     const total = parseInt(value, 10);
     if (!isNaN(total) && total > 0) {
-      setPaceTotals(prev => ({ ...prev, [paceIndex]: total }));
-      
-      // Update all students' pace records with new total
-      const updatedData = localData.map(row => {
-        const updatedPaceRecords = [...row.paceRecords];
+      setPaceTotals((prev) => ({ ...prev, [paceIndex]: total }));
+      const updatedData = localData.map((row) => {
+        const updatedPaceRecords = [...(row.paceRecords ?? [])];
         if (updatedPaceRecords[paceIndex]) {
           updatedPaceRecords[paceIndex] = {
             ...updatedPaceRecords[paceIndex],
-            totalScore: total
+            totalScore: total,
           };
         }
         return { ...row, paceRecords: updatedPaceRecords };
       });
-      
       onDataChange(updatedData);
     }
   };
 
   const handleTotalBlur = (paceIndex) => {
-    // If field is empty on blur, remove the total
     if (!paceTotals[paceIndex]) {
       const newTotals = { ...paceTotals };
       delete newTotals[paceIndex];
       setPaceTotals(newTotals);
-      
-      // Update all students' pace records to remove total
-      const updatedData = localData.map(row => {
-        const updatedPaceRecords = [...row.paceRecords];
-        if (updatedPaceRecords[paceIndex]) {
-          const { totalScore, ...rest } = updatedPaceRecords[paceIndex];
-          updatedPaceRecords[paceIndex] = rest;
-        }
-        return { ...row, paceRecords: updatedPaceRecords };
-      });
-      
-      onDataChange(updatedData);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="no-data-container">
+        <p style={{ opacity: 0.6 }}>Loading class data…</p>
+      </div>
+    );
+  }
 
   if (!localData || localData.length === 0) {
     return (
@@ -108,9 +120,6 @@ const PaceTable = ({
       </div>
     );
   }
-
-  // Check if any student has pace records
-  const hasPaceRecords = localData.some(student => student.paceRecords?.length > 0);
 
   return (
     <div className="pace-table-container">
@@ -126,11 +135,13 @@ const PaceTable = ({
           <thead>
             <tr>
               <th className="sticky-header">Student</th>
-              {hasPaceRecords ? (
-                localData[0]?.paceRecords?.map((record, index) => (
+              {maxPaceCount === 0 ? (
+                <th className="pace-record-header">No PACE Records Yet</th>
+              ) : (
+                columnRecords.map((record, index) => (
                   <th key={index} className="pace-record-header">
                     <div className="pace-header-content">
-                      <span>PACE #{record.paceNo}</span>
+                      <span>PACE #{record.paceNo ?? index + 1}</span>
                       <input
                         type="number"
                         min="1"
@@ -143,34 +154,40 @@ const PaceTable = ({
                     </div>
                   </th>
                 ))
-              ) : (
-                <th className="pace-record-header">
-                  No PACE Records Yet
-                </th>
               )}
             </tr>
           </thead>
           <tbody>
-            {localData.map(row => (
+            {localData.map((row) => (
               <tr key={row.studentId}>
                 <td className="student-name sticky-col">{row.name}</td>
-                {row.paceRecords?.length > 0 ? (
-                  row.paceRecords.map((record, recordIndex) => (
-                    <td key={recordIndex} className="score-cell">
-                      <input
-                        type="number"
-                        min="0"
-                        max={paceTotals[recordIndex] || undefined}
-                        placeholder="Score"
-                        value={record.testScore ?? ''}
-                        onChange={(e) => handleScoreChange(row.studentId, recordIndex, e.target.value)}
-                        className="score-input"
-                        disabled={!paceTotals[recordIndex]}
-                      />
-                    </td>
-                  ))
-                ) : (
+                {maxPaceCount === 0 ? (
                   <td className="score-cell empty">—</td>
+                ) : (
+                  Array.from({ length: maxPaceCount }).map((_, colIndex) => {
+                    const record = row.paceRecords?.[colIndex];
+                    return (
+                      <td key={colIndex} className="score-cell">
+                        {record ? (
+                          <input
+                            type="number"
+                            min="0"
+                            max={paceTotals[colIndex] || undefined}
+                            placeholder="Score"
+                            value={record.testScore ?? ''}
+                            onChange={(e) =>
+                              handleScoreChange(row.studentId, colIndex, e.target.value)
+                            }
+                            className="score-input"
+                            disabled={!paceTotals[colIndex]}
+                          />
+                        ) : (
+                          // Student has no record for this column yet — show dash
+                          <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>—</span>
+                        )}
+                      </td>
+                    );
+                  })
                 )}
               </tr>
             ))}
@@ -178,7 +195,7 @@ const PaceTable = ({
         </table>
       </div>
       <div className="pace-table-footer">
-        <p className="auto-save-note"> All changes are automatically saved</p>
+        <p className="auto-save-note">✓ All changes are automatically saved</p>
       </div>
     </div>
   );

@@ -1,3 +1,8 @@
+// ============================================================
+// App.jsx — wraps NotificationProvider so all screens get live
+// notification data from the AI model and FastAPI backend.
+// ============================================================
+
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import TeacherScreen from './screens/TeacherScreen';
@@ -16,6 +21,7 @@ import './styles/layout/Notification.css';
 import './styles/profileSetting/ProfileSetting.css';
 
 import { SchoolProvider } from './context/SchoolContext';
+import { NotificationProvider } from './context/NotificationContext';   // ← live
 import LoadingScreen from './components/common/LoadingScreen';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001';
@@ -38,19 +44,15 @@ function AppContent() {
     if (!currentUser) {
       try {
         const res = await fetch(`${API_BASE}/api/users/me`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
-        if (res.ok) {
-          currentUser = await res.json();
-        }
-      } catch (fetchError) {
-        console.warn('Could not fetch current user:', fetchError);
+        if (res.ok) currentUser = await res.json();
+      } catch (e) {
+        console.warn('Could not fetch current user:', e);
       }
     }
 
-    const role = currentUser?.role || (currentUser?.email === 'admin@lbca.edu' ? 'admin' : 'teacher');
+    const role  = currentUser?.role  || (currentUser?.email === 'admin@lbca.edu' ? 'admin' : 'teacher');
     const email = currentUser?.email || 'user@lbca.edu';
     const userData = { role, email };
     sessionStorage.setItem('lbca_user', JSON.stringify(userData));
@@ -67,13 +69,13 @@ function AppContent() {
     }, 800);
   };
 
-  if (isLoading) return <LoadingScreen message={user ? 'Signing out...' : 'Signing you in...'} />;
+  if (isLoading) return <LoadingScreen message={user ? 'Signing out…' : 'Signing you in…'} />;
 
   return (
     <Routes>
       {!user && <Route path="*" element={<AuthController onAuthSuccess={handleAuthSuccess} />} />}
       {user?.role === 'teacher' && <Route path="/*" element={<TeacherScreen onLogout={handleLogout} user={user} />} />}
-      {user?.role === 'admin' && <Route path="/*" element={<AdminScreen onLogout={handleLogout} user={user} />} />}
+      {user?.role === 'admin'   && <Route path="/*" element={<AdminScreen   onLogout={handleLogout} user={user} />} />}
     </Routes>
   );
 }
@@ -81,9 +83,13 @@ function AppContent() {
 function App() {
   return (
     <SchoolProvider>
-      <BrowserRouter basename="/LBCA-Monitoring-System">
-        <AppContent />
-      </BrowserRouter>
+      {/* NotificationProvider is placed INSIDE SchoolProvider but OUTSIDE the router
+          so the bell badge stays fresh even across page navigations */}
+      <NotificationProvider>
+        <BrowserRouter basename="/LBCA-Monitoring-System">
+          <AppContent />
+        </BrowserRouter>
+      </NotificationProvider>
     </SchoolProvider>
   );
 }

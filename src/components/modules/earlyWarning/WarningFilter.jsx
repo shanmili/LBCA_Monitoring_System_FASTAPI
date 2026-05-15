@@ -1,74 +1,67 @@
-import FilterBar from '../../../components/common/FilterBar';
-import { schoolYears, studentGrades, studentSections } from '../../../data/mockData';
+// ============================================================
+// WarningFilter.jsx — dynamic options version
+// Accepts sectionOptions + schoolYearOptions from the live hook.
+// ============================================================
 
-const WarningFilter = ({ filters, onFilterChange, teacher = null }) => {
-  // Get available grades based on teacher assignment
-  const getAvailableGrades = () => {
-    if (teacher?.assignedGrades) {
-      return teacher.assignedGrades;
-    }
-    return studentGrades;
-  };
 
-  // Get available sections based on teacher assignment
-  const getAvailableSections = () => {
-    if (teacher?.assignedSections) {
-      return teacher.assignedSections;
-    }
-    return studentSections;
-  };
+const WarningFilter = ({
+  filters,
+  onFilterChange,
+  teacher = null,
+  sectionOptions = [],
+  schoolYearOptions = [],
+}) => {
+  const sections = sectionOptions.length
+    ? sectionOptions
+    : ['Section A', 'Section B', 'Section C'];
 
-  const filterOptions = [
-    {
-      key: 'schoolYear',
-      value: filters.schoolYear,
-      options: [
-        { value: 'All', label: 'All Years' },
-        ...schoolYears.map(year => ({ 
-          value: year, 
-          label: `SY ${year}` 
-        }))
-      ]
-    },
-    {
-      key: 'gradeLevel',
-      value: filters.gradeLevel,
-      options: [
-        { value: 'All', label: 'All Grades' },
-        ...getAvailableGrades().map(grade => ({ 
-          value: grade, 
-          label: grade 
-        }))
-      ]
-    },
-    {
-      key: 'section',
-      value: filters.section,
-      options: [
-        { value: 'All', label: 'All Sections' },
-        ...getAvailableSections().map(section => ({ 
-          value: section, 
-          label: section 
-        }))
-      ]
-    },
-    {
-      key: 'risk',
-      value: filters.risk,
-      options: [
-        { value: 'All', label: 'All Risk Levels' },
-        { value: 'High', label: 'High' },
-        { value: 'Medium', label: 'Medium' },
-        { value: 'Low', label: 'Low' },
-      ]
-    }
-  ];
+  const years = schoolYearOptions.length
+    ? schoolYearOptions
+    : ['2025-2026', '2024-2025'];
 
   return (
-    <FilterBar 
-      filters={filterOptions} 
-      onFilterChange={onFilterChange} 
-    />
+    <div className="warning-filter">
+      {/* School Year */}
+      <select
+        value={filters.schoolYear}
+        onChange={(e) => onFilterChange('schoolYear', e.target.value)}
+        className="filter-select"
+      >
+        {years.map((y) => (
+          <option key={y} value={y}>
+            SY {y}
+          </option>
+        ))}
+      </select>
+
+      {/* Section — hidden when teacher has only one section */}
+      {(!teacher || (teacher.assignedSections && teacher.assignedSections.length > 1)) && (
+        <select
+          value={filters.section}
+          onChange={(e) => onFilterChange('section', e.target.value)}
+          className="filter-select"
+        >
+          <option value="All">All Sections</option>
+          {sections.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* Risk Level */}
+      <select
+        value={filters.risk}
+        onChange={(e) => onFilterChange('risk', e.target.value)}
+        className="filter-select"
+      >
+        <option value="All">All Risk Levels</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+    </div>
   );
 };
 

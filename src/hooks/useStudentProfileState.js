@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { studentApi, enrollmentApi, gradeLevelApi, sectionApi, schoolYearApi } from '../services/api.js';
+import { studentApi, enrollmentApi, gradeLevelApi, sectionApi, schoolYearApi, paceApi, aiApi, toAiStudentInput } from '../services/api.js';
 import PrintStudentProfile from '../components/modules/students/PrintStudentProfile';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'pace', label: 'PACE Progress' },
-  { id: 'attendance', label: 'Attendance' },
   { id: 'risk', label: 'Risk Details' },
 ];
 
@@ -13,7 +12,10 @@ export default function useStudentProfileState(studentId) {
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [studentData, setStudentData] = useState(null);
+  const [paceRecords, setPaceRecords] = useState([]);
+  const [aiData, setAiData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // For the edit modal dropdowns
@@ -27,34 +29,53 @@ export default function useStudentProfileState(studentId) {
     setShowEditModal(false);
     setLoading(true);
     setError(null);
+    setPaceRecords([]);
+    setAiData(null);
 
     const fetchStudent = async () => {
       try {
-        const [student, enrollments, gradeLevelsRes, sectionsRes, schoolYearsRes] = await Promise.all([
+        const [student, enrollments, gradeLevelsRes, sectionsRes, schoolYearsRes, paces] = await Promise.all([
           studentApi.get(studentId),
           enrollmentApi.list({ student_id: studentId }),
           gradeLevelApi.list(),
           sectionApi.list(),
           schoolYearApi.list(),
+          paceApi.list({ student_id: studentId }),
         ]);
 
         setGradeLevels(gradeLevelsRes);
         setSections(sectionsRes);
         setSchoolYears(schoolYearsRes);
+        setPaceRecords(paces);
 
         const active = enrollments.find(e => e.is_active) || enrollments[0] || null;
         const gradeLevel = active ? gradeLevelsRes.find(gl => gl.grade_level_id === active.grade_level_id) : null;
         const section = active ? sectionsRes.find(s => s.section_id === active.section_id) : null;
         const schoolYear = active ? schoolYearsRes.find(sy => sy.school_year_id === active.school_year_id) : null;
 
-        setStudentData({
+        const base = {
           ...student,
           enrollment: active,
           gradeLevelDisplay: gradeLevel?.level || '—',
           sectionDisplay: section?.name || '—',
           schoolYearDisplay: schoolYear?.year || '—',
           isActive: active?.is_active ?? false,
-        });
+        };
+        setStudentData(base);
+
+        // Run AI after base data is set
+        if (paces.length > 0) {
+          setAiLoading(true);
+          try {
+            const aiInput = toAiStudentInput(student, paces);
+            const prediction = await aiApi.predictRisk(aiInput);
+            setAiData(prediction);
+          } catch (e) {
+            console.warn('AI prediction failed for student profile:', e.message);
+          } finally {
+            setAiLoading(false);
+          }
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -144,7 +165,10 @@ export default function useStudentProfileState(studentId) {
     showEditModal,
     setShowEditModal,
     student: studentData,
+    paceRecords,
+    aiData,
     loading,
+    aiLoading,
     error,
     gradeLevels,
     sections,
