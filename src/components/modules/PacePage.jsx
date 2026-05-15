@@ -7,9 +7,22 @@ const PacePage = () => {
   const {
     filters,
     updateFilter,
+
+    // live dropdown options from backend
+    schoolYearOptions,
+    gradeLevelOptions,
+    sectionOptions,
+    subjectOptions,
+
+    // table data
     encodingData,
     handleDataChange,
     handleAddPaceForCurrent,
+
+    // loading / error
+    loading,
+    loadingRef,
+    error,
   } = usePaceEncodingState();
 
   return (
@@ -21,21 +34,38 @@ const PacePage = () => {
           </div>
           <p className="header-subtitle">Record student PACE completion and test scores</p>
         </div>
-        
-        <PaceFilter 
+
+        <PaceFilter
           filters={filters}
           onFilterChange={updateFilter}
+          schoolYearOptions={schoolYearOptions}
+          gradeLevelOptions={gradeLevelOptions}
+          sectionOptions={sectionOptions}
+          subjectOptions={subjectOptions}
         />
       </div>
 
-      <PaceTable 
-        data={encodingData}
-        onDataChange={handleDataChange}
-        onAddPaceForCurrent={handleAddPaceForCurrent}
-        subject={filters.subject}
-        section={filters.section}
-        gradeLevel={filters.gradeLevel}
-      />
+      {/* Error banner */}
+      {error && (
+        <div className="pace-error-banner" style={{ color: 'red', padding: '8px 0' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Loading state for initial reference data */}
+      {loadingRef ? (
+        <div className="pace-loading">Loading filters…</div>
+      ) : (
+        <PaceTable
+          data={encodingData}
+          onDataChange={handleDataChange}
+          onAddPaceForCurrent={handleAddPaceForCurrent}
+          subject={filters.subject}
+          section={filters.section}
+          gradeLevel={filters.gradeLevel}
+          loading={loading}
+        />
+      )}
     </div>
   );
 };

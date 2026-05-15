@@ -1,47 +1,58 @@
 import FilterBar from '../../../components/common/FilterBar';
-import { schoolYears, studentGrades, studentSections, paceSubjects } from '../../../data/mockData';
 
-const PaceFilter = ({ filters, onFilterChange, onAddPaceRecord }) => {
+/**
+ * PaceFilter
+ * Receives option arrays from the parent hook (live from backend)
+ * instead of importing static mockData.
+ */
+const PaceFilter = ({
+  filters,
+  onFilterChange,
+  schoolYearOptions = [],
+  gradeLevelOptions = [],
+  sectionOptions    = [],
+  subjectOptions    = [],
+}) => {
   const filterOptions = [
     {
       key: 'schoolYear',
       value: filters.schoolYear,
-      options: schoolYears.map(year => ({ 
-        value: year, 
-        label: `SY ${year}` 
-      }))
+      options: schoolYearOptions.map((year) => ({
+        value: year,
+        label: `SY ${year}`,
+      })),
     },
     {
       key: 'gradeLevel',
       value: filters.gradeLevel,
-      options: studentGrades.map(grade => ({ 
-        value: grade, 
-        label: grade 
-      }))
+      options: gradeLevelOptions.map((grade) => ({
+        value: grade,
+        label: grade,
+      })),
     },
     {
       key: 'section',
       value: filters.section,
-      options: studentSections.map(section => ({ 
-        value: section, 
-        label: section 
-      }))
+      options: sectionOptions.map((section) => ({
+        value: section,
+        label: section,
+      })),
     },
     {
       key: 'subject',
       value: filters.subject,
-      options: paceSubjects.map(subject => ({
+      options: subjectOptions.map((subject) => ({
         value: subject,
-        label: subject
-      }))
-    }
+        label: subject,
+      })),
+    },
   ];
 
   return (
     <div className="filter-section">
-      <FilterBar 
-        filters={filterOptions} 
-        onFilterChange={onFilterChange} 
+      <FilterBar
+        filters={filterOptions}
+        onFilterChange={onFilterChange}
       />
     </div>
   );
