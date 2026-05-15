@@ -2,7 +2,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis
 import '../../../styles/dashboard/AttendanceChart.css'; // reuse same card styles
 
 /**
- * PaceForecastChart
+ * PaceForecastChartt
  *
  * Replaces the old AttendanceChart.
  * Displays the AI model's cohort outcome forecast:
